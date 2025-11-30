@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const STASH_API_URL = 'https://api.stash.gg/sdk/server/checkout_links/generate_quick_pay_url';
+const STASH_API_URL = 'https://test-api.stash.gg/sdk/server/checkout_links/generate_quick_pay_url';
 const STASH_API_KEY = process.env.STASH_API_KEY || '';
 
 const DEFAULT_PAYLOAD = {
