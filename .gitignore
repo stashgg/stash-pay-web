@@ -4,3 +4,4 @@
 packages/*/dist
 *.log
 .DS_Store
+/sample/.next

@@ -107,8 +107,15 @@ The package is automatically published to npm via GitHub Actions when:
 **Required Setup:**
 - Add an `NPM_TOKEN` secret to your GitHub repository settings
   - Go to Settings → Secrets and variables → Actions
-  - Add a new secret named `NPM_TOKEN` with your npm access token
-  - Generate a token at https://www.npmjs.com/settings/YOUR_USERNAME/tokens (use "Automation" type)
+  - Add a new secret named `NPM_TOKEN` with your npm granular access token
+  - **Important**: You must create a **Granular Access Token** with **"Bypass 2FA"** enabled
+  - Granular tokens with bypass 2FA don't require OTP and work in CI/CD
+  - Generate a token at: https://www.npmjs.com/settings/stashgg/tokens
+  - Click "Generate New Token" → Select "Granular Access Token"
+  - Enable "Bypass 2FA" option and set permissions to "Read and write" or "Publish"
+  - Make sure it has access to the `@stashgg` scope
+  - See [.github/NPM_SETUP.md](.github/NPM_SETUP.md) for detailed instructions
+  - If you use a token without bypass 2FA enabled, you'll get an OTP error
 
 ### Manual Publishing
 
@@ -118,6 +125,36 @@ To manually publish the `@stashgg/stash-pay` package to npm:
 2. Navigate to the package directory: `cd packages/stash-pay`
 3. Update version if needed: `npm version patch|minor|major`
 4. Publish: `npm publish --access public`
+
+### Troubleshooting Publishing
+
+**Error: `404 Not Found - PUT https://registry.npmjs.org/@stashgg%2fstash-pay`**
+
+This error means the `@stashgg` organization doesn't exist on npm yet, or you don't have publish permissions. To fix:
+
+1. **Create the organization** (if it doesn't exist):
+   - Go to https://www.npmjs.com/org/create
+   - Create an organization named `stashgg`
+   - Add team members as needed
+
+2. **Verify organization access**:
+   - Go to https://www.npmjs.com/settings/stashgg/teams
+   - Ensure your npm account is a member with publish permissions
+   - For CI/CD, you may need to add a team with publish access
+
+3. **Verify token permissions**:
+   - Ensure your `NPM_TOKEN` has access to the `@stashgg` scope
+   - The token must have "Publish" or "Read and write" permissions for the organization
+   - Regenerate the token if needed with correct scope/permissions
+
+4. **Test locally first**:
+   ```bash
+   npm login
+   npm whoami
+   npm org ls stashgg
+   cd packages/stash-pay
+   npm publish --access public --dry-run
+   ```
 
 ## License
 
