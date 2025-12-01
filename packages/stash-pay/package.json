@@ -26,6 +26,10 @@
     "checkout",
     "react"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stashgg/stash-pay-web.git"
+  },
   "author": "",
   "license": "MIT",
   "peerDependencies": {
