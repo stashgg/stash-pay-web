@@ -13,6 +13,7 @@ See [packages/stash-pay/README.md](./packages/stash-pay/README.md) for package d
 ### Sample App
 
 A Next.js application demonstrating how to use the `@stashgg/stash-pay` package.
+Sample App is also automatically published [here](https://stash-pay-web.vercel.app/).
 
 ## Getting Started
 
