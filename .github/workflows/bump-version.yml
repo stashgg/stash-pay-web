@@ -1,0 +1,55 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bump version
+        run: |
+          cd packages/stash-pay
+          npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add packages/stash-pay/package.json
+          git commit -m "chore: bump @stashgg/stash-pay version to ${{ env.NEW_VERSION }} [skip ci]"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## Version Bumped Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: @stashgg/stash-pay" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version**: ${{ env.NEW_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: ${{ github.event.inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
+
