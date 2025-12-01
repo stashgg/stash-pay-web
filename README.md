@@ -1,33 +1,12 @@
 # Stash Pay Monorepo
 
-This monorepo contains the Stash Pay React component package and a sample Next.js application demonstrating its usage.
-
-## Structure
-
-```
-.
-├── packages/
-│   └── stash-pay/          # NPM package: @stashgg/stash-pay
-│       ├── src/
-│       │   ├── StashPay.tsx
-│       │   └── index.ts
-│       ├── dist/           # Built package output
-│       └── package.json
-└── sample/                 # Sample Next.js app using the package
-    ├── app/
-    │   ├── api/
-    │   │   └── checkout/
-    │   │       └── route.ts
-    │   ├── page.tsx
-    │   └── layout.tsx
-    └── package.json
-```
+This monorepo contains the Stash Pay component package and a sample Next.js application demonstrating its usage.
 
 ## Packages
 
 ### @stashgg/stash-pay
 
-The main React component package for integrating Stash payment checkout.
+The main React component package for integrating Stash Pay checkout published on npm.
 
 See [packages/stash-pay/README.md](./packages/stash-pay/README.md) for package documentation.
 
