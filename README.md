@@ -1,222 +1,123 @@
-# Stash Pay Sample - Next.js Integration
+# Stash Pay Monorepo
 
-A Next.js application demonstrating how to integrate Stash Pay checkout links with a React component that handles payment events from an embedded iframe.
+This monorepo contains the Stash Pay React component package and a sample Next.js application demonstrating its usage.
+
+## Structure
+
+```
+.
+├── packages/
+│   └── stash-pay/          # NPM package: @stashgg/stash-pay
+│       ├── src/
+│       │   ├── StashPay.tsx
+│       │   └── index.ts
+│       ├── dist/           # Built package output
+│       └── package.json
+└── sample/                 # Sample Next.js app using the package
+    ├── app/
+    │   ├── api/
+    │   │   └── checkout/
+    │   │       └── route.ts
+    │   ├── page.tsx
+    │   └── layout.tsx
+    └── package.json
+```
+
+## Packages
+
+### @stashgg/stash-pay
+
+The main React component package for integrating Stash payment checkout.
+
+See [packages/stash-pay/README.md](./packages/stash-pay/README.md) for package documentation.
+
+### Sample App
+
+A Next.js application demonstrating how to use the `@stashgg/stash-pay` package.
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js 18+ 
-- npm, yarn, pnpm, or bun
-
 ### Installation
+
+Install all dependencies:
 
 ```bash
 npm install
-# or
-yarn install
-# or
-pnpm install
 ```
 
-### Running the Development Server
+### Development
+
+Run the sample app in development mode:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+This will start the Next.js sample app at [http://localhost:3000](http://localhost:3000).
 
-## How It Works
+### Building
 
-### StashPay Component
-
-The `StashPay` component embeds a Stash checkout URL in an iframe and listens for payment events.
-
-#### Basic Usage
-
-```tsx
-import StashPay from './components/StashPay';
-
-function MyComponent() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-
-  return (
-    <StashPay
-      isOpen={isOpen}
-      checkoutUrl={checkoutUrl}
-      onClose={() => setIsOpen(false)}
-      onPurchaseSuccess={(data) => {
-        console.log('Payment successful!', data);
-        // Handle successful payment
-      }}
-      onPurchaseFailed={(data) => {
-        console.log('Payment failed!', data);
-        // Handle failed payment
-      }}
-    />
-  );
-}
-```
-
-#### Props
-
-- `isOpen: boolean` - Controls modal visibility
-- `checkoutUrl: string | null` - The Stash checkout URL to embed
-- `onClose: () => void` - Callback when modal is closed
-- `onPurchaseSuccess?: (data?: Record<string, unknown>) => void` - Callback when payment succeeds
-- `onPurchaseFailed?: (data?: Record<string, unknown>) => void` - Callback when payment fails
-
-### How Events Work
-
-The Stash Pay checkout iframe communicates with the parent page using the [PostMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).
-
-#### Event Flow
-
-1. **Iframe sends event**: The Stash checkout page calls `window.parent.postMessage()` with an event object
-2. **Parent listens**: The `StashPay` component listens for these messages using `window.addEventListener('message', ...)`
-3. **Event parsing**: The component parses the message and extracts the event type
-4. **Callback execution**: The appropriate callback (`onPurchaseSuccess` or `onPurchaseFailed`) is called
-5. **Auto-close**: The modal automatically closes on success or failure
-
-#### Event Format
-
-The Stash checkout iframe sends events in the following format:
-
-```javascript
-{
-  eventName: "STASH_WINDOW_EVENT__PAYMENT_SUCCESS",  // or PAYMENT_FAILURE
-  // ... additional data (optional)
-}
-```
-
-#### Supported Events
-
-- `PAYMENT_SUCCESS` - Payment completed successfully
-- `PAYMENT_FAILURE` - Payment failed or was cancelled
-- `PURCHASE_PROCESSING` - Payment is being processed (currently not handled by callbacks)
-
-### API Endpoint
-
-The project includes a backend API route at `/api/checkout` that generates Stash checkout links.
-
-#### Request
+Build the package:
 
 ```bash
-POST /api/checkout
-Content-Type: application/json
-
-{}
+npm run build:package
 ```
 
-The endpoint uses default payload values. You can customize the request body to override defaults:
+Build the sample app:
 
-```json
-{
-  "regionCode": "USA",
-  "currency": "USD",
-  "item": {
-    "id": "item-id",
-    "pricePerItem": "9.99",
-    "quantity": 1,
-    "name": "Product Name",
-    "description": "Product Description"
-  },
-  "user": {
-    "id": "user-id",
-    "validatedEmail": "user@example.com",
-    "regionCode": "US",
-    "platform": "IOS"
-  }
-}
+```bash
+npm run build:sample
 ```
 
-#### Response
+Build everything:
 
-```json
-{
-  "url": "https://checkout.stash.gg/...",
-  "id": "checkout-id",
-  "regionCode": "USA"
-}
+```bash
+npm run build
 ```
 
-## Project Structure
+## Workspace Scripts
 
-```
-app/
-├── api/
-│   └── checkout/
-│       └── route.ts          # Backend API for generating checkout links
-├── components/
-│   └── StashPay.tsx          # Main payment modal component
-├── page.tsx                  # Example usage page
-└── layout.tsx                # Root layout
-```
+- `npm run dev` - Start the sample app in development mode
+- `npm run build` - Build all workspaces
+- `npm run build:package` - Build only the @stashgg/stash-pay package
+- `npm run build:sample` - Build only the sample app
 
 ## Environment Variables
 
-Create a `.env.local` file in the root directory:
+For the sample app, create a `.env.local` file in the `sample/` directory:
 
 ```env
 STASH_API_KEY=your_stash_api_key_here
 ```
 
-The API key is used by the `/api/checkout` endpoint to authenticate with the Stash API.
+## Publishing the Package
 
-## StashPay Component Details
+### Automated Publishing (GitHub Actions)
 
-### Features
+The package is automatically published to npm via GitHub Actions when:
 
-- **Loading State**: Shows a spinner while the iframe loads
-- **Smooth Animations**: Slide-up animation with fade transitions
-- **Backdrop Dismiss**: Click outside the card to close
-- **Auto-close**: Automatically closes on payment success or failure
-- **Event Handling**: Listens for `window.parent.postMessage()` from the iframe
+1. **Tag-based release**: Push a version tag (e.g., `v1.0.0`)
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
 
-### Event Listening Implementation
+2. **Manual workflow**: Use the "Build and Publish" workflow in GitHub Actions and provide a version number
 
-The component uses the following approach to listen for events:
+**Required Setup:**
+- Add an `NPM_TOKEN` secret to your GitHub repository settings
+  - Go to Settings → Secrets and variables → Actions
+  - Add a new secret named `NPM_TOKEN` with your npm access token
+  - Generate a token at https://www.npmjs.com/settings/YOUR_USERNAME/tokens (use "Automation" type)
 
-```typescript
-useEffect(() => {
-  const handleMessage = (event: MessageEvent) => {
-    // Parse the event from the iframe
-    const eventName = event.data.eventName;
-    const eventType = eventName.replace('STASH_WINDOW_EVENT__', '');
-    
-    // Call appropriate callback
-    if (eventType === 'PAYMENT_SUCCESS') {
-      onPurchaseSuccess?.(eventData);
-    } else if (eventType === 'PAYMENT_FAILURE') {
-      onPurchaseFailed?.(eventData);
-    }
-  };
+### Manual Publishing
 
-  window.addEventListener('message', handleMessage);
-  return () => window.removeEventListener('message', handleMessage);
-}, [isOpen, onPurchaseSuccess, onPurchaseFailed]);
-```
+To manually publish the `@stashgg/stash-pay` package to npm:
 
-## Development
-
-### Building for Production
-
-```bash
-npm run build
-npm start
-```
-
-### Linting
-
-```bash
-npm run lint
-```
+1. Build the package: `npm run build:package`
+2. Navigate to the package directory: `cd packages/stash-pay`
+3. Update version if needed: `npm version patch|minor|major`
+4. Publish: `npm publish --access public`
 
 ## License
 

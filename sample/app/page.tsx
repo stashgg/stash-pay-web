@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import StashPay from './components/StashPay';
+import { StashPay } from '@stashgg/stash-pay';
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
