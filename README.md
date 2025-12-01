@@ -1,6 +1,6 @@
-# Stash Pay Monorepo
+# Stash Pay Checkout Dialog For Web
 
-This monorepo contains the Stash Pay component package and a sample Next.js application demonstrating its usage.
+This repository contains the Stash Pay component package and a sample Next.js application demonstrating its usage.
 
 ## Packages
 
