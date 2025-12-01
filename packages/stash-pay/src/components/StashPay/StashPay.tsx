@@ -1,21 +1,12 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import './stash-pay.css';
+import '../../styles/stash-pay.css';
+import { StashWindowEvent } from '../../types';
+import Backdrop from './Backdrop/Backdrop';
+import PaymentCard from './PaymentCard/PaymentCard';
 
-// Stash types
-export enum StashWindowEvent {
-  PAYMENT_FAILURE = 'PAYMENT_FAILURE',
-  PAYMENT_SUCCESS = 'PAYMENT_SUCCESS',
-  PURCHASE_PROCESSING = 'PURCHASE_PROCESSING',
-}
-
-export interface StashEventMessage {
-  type: StashWindowEvent;
-  data?: Record<string, unknown>;
-}
-
-interface StashPayProps {
+export interface StashPayProps {
   isOpen: boolean;
   checkoutUrl: string | null;
   onClose: () => void;
@@ -100,67 +91,15 @@ export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSucce
     <div
       className={`stash-pay-container ${isOpen ? 'open' : 'closed'}`}
     >
-      {/* Backdrop with blur */}
-      <div
-        className="stash-pay-backdrop"
-        onClick={onClose}
+      <Backdrop onClick={onClose} />
+      <PaymentCard
+        isOpen={isOpen}
+        isLoading={isLoading}
+        checkoutUrl={checkoutUrl}
+        iframeRef={iframeRef}
+        onClose={onClose}
+        onIframeLoad={handleIframeLoad}
       />
-
-      {/* Payment Card */}
-      <div
-        className={`stash-pay-card ${isOpen ? '' : 'closed'}`}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          height: isLoading ? '400px' : '90vh',
-          maxHeight: '90vh',
-        }}
-      >
-        {/* Drag bar - Overlay */}
-        <div className="stash-pay-drag-bar">
-          <div className="stash-pay-drag-bar-indicator" />
-        </div>
-
-        {/* Floating Close Button */}
-        <button
-          onClick={onClose}
-          className="stash-pay-close-button"
-          aria-label="Close"
-        >
-          <svg
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        {/* Simple Loading Indicator */}
-        {isLoading && (
-          <div className="stash-pay-loading">
-            <div className="stash-pay-spinner" />
-          </div>
-        )}
-
-        {/* Iframe Container */}
-        <div
-          className={`stash-pay-iframe-container ${isLoading ? 'loading' : 'loaded'}`}
-        >
-          <iframe
-            key={checkoutUrl}
-            ref={iframeRef}
-            src={checkoutUrl}
-            className="stash-pay-iframe"
-            onLoad={handleIframeLoad}
-            title="Stash Payment"
-            allow="payment"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-          />
-        </div>
-      </div>
     </div>
   );
 }

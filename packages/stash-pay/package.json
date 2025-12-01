@@ -1,6 +1,6 @@
 {
   "name": "@stashgg/stash-pay",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React component for Stash pay checkout",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,14 +10,14 @@
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./styles": "./dist/stash-pay.css"
+    "./styles": "./dist/styles/stash-pay.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsc && npm run copy-css",
-    "copy-css": "cp src/stash-pay.css dist/stash-pay.css",
+    "copy-css": "mkdir -p dist/styles && cp src/styles/stash-pay.css dist/styles/stash-pay.css",
     "dev": "tsc --watch"
   },
   "keywords": [
