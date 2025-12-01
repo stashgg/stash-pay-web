@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@stashgg/stash-pay/styles";
 
 export const metadata: Metadata = {
   title: "Next.js App",

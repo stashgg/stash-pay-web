@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import './stash-pay.css';
 
 // Stash types
 export enum StashWindowEvent {
@@ -97,42 +98,35 @@ export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSucce
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-end justify-center transition-opacity duration-300 ${
-        isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-      }`}
+      className={`stash-pay-container ${isOpen ? 'open' : 'closed'}`}
     >
       {/* Backdrop with blur */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+        className="stash-pay-backdrop"
         onClick={onClose}
       />
 
       {/* Payment Card */}
       <div
-        className={`relative w-full max-w-md bg-black rounded-t-3xl shadow-2xl transform transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] overflow-hidden ${
-          isOpen ? 'translate-y-0' : 'translate-y-full'
-        }`}
+        className={`stash-pay-card ${isOpen ? '' : 'closed'}`}
         onClick={(e) => e.stopPropagation()}
         style={{
           height: isLoading ? '400px' : '90vh',
           maxHeight: '90vh',
-          boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.5)',
-          transition: 'height 700ms cubic-bezier(0.32, 0.72, 0, 1), transform 700ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
         {/* Drag bar - Overlay */}
-        <div className="absolute top-0 left-0 right-0 flex justify-center pt-3 pb-2 z-20 pointer-events-none">
-          <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
+        <div className="stash-pay-drag-bar">
+          <div className="stash-pay-drag-bar-indicator" />
         </div>
 
         {/* Floating Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all"
+          className="stash-pay-close-button"
           aria-label="Close"
         >
           <svg
-            className="w-5 h-5"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -146,24 +140,20 @@ export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSucce
 
         {/* Simple Loading Indicator */}
         {isLoading && (
-          <div className="absolute inset-0 overflow-hidden bg-black z-10 flex items-center justify-center">
-            <div className="w-12 h-12 border-4 border-gray-600 border-t-gray-300 rounded-full animate-spin" />
+          <div className="stash-pay-loading">
+            <div className="stash-pay-spinner" />
           </div>
         )}
 
         {/* Iframe Container */}
         <div
-          className={`absolute inset-0 transition-all duration-700 ease-out ${
-            isLoading
-              ? 'opacity-0 pointer-events-none z-0'
-              : 'opacity-100 z-0'
-          }`}
+          className={`stash-pay-iframe-container ${isLoading ? 'loading' : 'loaded'}`}
         >
           <iframe
             key={checkoutUrl}
             ref={iframeRef}
             src={checkoutUrl}
-            className="w-full h-full border-0"
+            className="stash-pay-iframe"
             onLoad={handleIframeLoad}
             title="Stash Payment"
             allow="payment"

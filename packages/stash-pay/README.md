@@ -10,8 +10,13 @@ npm install @stashgg/stash-pay
 
 ## Usage
 
+The component includes its own CSS styles. Depending on your bundler setup, you may need to import the styles separately:
+
+### With CSS Import (Recommended)
+
 ```tsx
 import { StashPay } from '@stashgg/stash-pay';
+import '@stashgg/stash-pay/styles';
 
 function App() {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,6 +33,20 @@ function App() {
   );
 }
 ```
+
+### Without Separate Import
+
+If your bundler handles CSS imports automatically (e.g., Next.js, Vite with CSS plugin), you can use the component directly:
+
+```tsx
+import { StashPay } from '@stashgg/stash-pay';
+
+function App() {
+  // ... same as above
+}
+```
+
+**Note**: The component includes CSS classes that are required for proper styling. If styles don't appear, make sure to import `@stashgg/stash-pay/styles` in your application.
 
 ## Props
 

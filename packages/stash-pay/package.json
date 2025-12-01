@@ -9,13 +9,15 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./styles": "./dist/stash-pay.css"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-css",
+    "copy-css": "cp src/stash-pay.css dist/stash-pay.css",
     "dev": "tsc --watch"
   },
   "keywords": [
