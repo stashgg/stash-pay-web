@@ -20,7 +20,7 @@ export default function CheckoutContainer({ checkoutUrl, iframeRef, isLoading, o
         onLoad={onLoad}
         title="Stash Payment"
         allow="payment"
-        sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
       />
     </div>
   );

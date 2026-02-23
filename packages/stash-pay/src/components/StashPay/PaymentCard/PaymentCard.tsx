@@ -11,6 +11,8 @@ interface PaymentCardProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   onClose: () => void;
   onIframeLoad: () => void;
+  /** Optional width for the payment card (e.g., '500px', '100%', '50vw') */
+  width?: string | number;
 }
 
 export default function PaymentCard({
@@ -20,6 +22,7 @@ export default function PaymentCard({
   iframeRef,
   onClose,
   onIframeLoad,
+  width,
 }: PaymentCardProps) {
   return (
     <div
@@ -28,6 +31,7 @@ export default function PaymentCard({
       style={{
         height: isLoading ? '400px' : '90vh',
         maxHeight: '90vh',
+        ...(width !== undefined && { width: typeof width === 'number' ? `${width}px` : width }),
       }}
     >
       <DragBar />

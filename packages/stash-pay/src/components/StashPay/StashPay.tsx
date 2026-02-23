@@ -12,9 +12,11 @@ export interface StashPayProps {
   onClose: () => void;
   onPurchaseSuccess?: (data?: Record<string, unknown>) => void;
   onPurchaseFailed?: (data?: Record<string, unknown>) => void;
+  /** Optional width for the payment card (e.g., '500px', '100%', '50vw') */
+  width?: string | number;
 }
 
-export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSuccess, onPurchaseFailed }: StashPayProps) {
+export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSuccess, onPurchaseFailed, width }: StashPayProps) {
   const [isLoading, setIsLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -99,6 +101,7 @@ export default function StashPay({ isOpen, checkoutUrl, onClose, onPurchaseSucce
         iframeRef={iframeRef}
         onClose={onClose}
         onIframeLoad={handleIframeLoad}
+        width={width}
       />
     </div>
   );

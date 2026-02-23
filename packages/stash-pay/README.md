@@ -55,6 +55,7 @@ function App() {
 - `onClose: () => void` - Callback when the modal is closed
 - `onPurchaseSuccess?: (data?: Record<string, unknown>) => void` - Callback when payment succeeds
 - `onPurchaseFailed?: (data?: Record<string, unknown>) => void` - Callback when payment fails
+- `width?: string | number` - Optional width for the payment card (e.g., `500`, `'500px'`, `'100%'`, `'50vw'`)
 
 ## Types
 

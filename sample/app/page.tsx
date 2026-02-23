@@ -9,6 +9,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [purchaseResult, setPurchaseResult] = useState<{ success: boolean; data?: Record<string, unknown> } | null>(null);
+  const [cardWidth, setCardWidth] = useState<string>('');
 
   const generateCheckoutLink = async () => {
     setLoading(true);
@@ -58,6 +59,21 @@ export default function Home() {
       <div className="max-w-2xl w-full space-y-6">
         <h1 className="text-4xl font-bold mb-4 text-center">Stash Checkout Web Component</h1>
         
+        <div className="space-y-2">
+          <label htmlFor="width" className="block text-sm font-medium text-gray-700">
+            Card Width (optional)
+          </label>
+          <input
+            id="width"
+            type="text"
+            value={cardWidth}
+            onChange={(e) => setCardWidth(e.target.value)}
+            placeholder="e.g., 500px, 80%, 50vw"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
+          <p className="text-xs text-gray-500">Leave empty for default width</p>
+        </div>
+
         <button
           onClick={generateCheckoutLink}
           disabled={loading}
@@ -99,6 +115,7 @@ export default function Home() {
         onClose={handleCloseModal}
         onPurchaseSuccess={handlePurchaseSuccess}
         onPurchaseFailed={handlePurchaseFailed}
+        width={cardWidth || undefined}
       />
     </main>
   );
