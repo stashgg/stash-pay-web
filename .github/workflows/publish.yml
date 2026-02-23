@@ -46,9 +46,7 @@ jobs:
         run: |
           cd packages/stash-pay
           npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # Provenance is automatically generated when using trusted publishing
+        # Uses OIDC trusted publishing - no NPM_TOKEN needed
 
       - name: Create GitHub Release (tag trigger)
         if: startsWith(github.ref, 'refs/tags/')
