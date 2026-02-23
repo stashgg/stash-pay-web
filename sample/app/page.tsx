@@ -115,7 +115,7 @@ export default function Home() {
         onClose={handleCloseModal}
         onPurchaseSuccess={handlePurchaseSuccess}
         onPurchaseFailed={handlePurchaseFailed}
-        width={cardWidth || undefined}
+        width={cardWidth || "800px"}
       />
     </main>
   );

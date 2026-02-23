@@ -5,3 +5,4 @@ packages/*/dist
 *.log
 .DS_Store
 /sample/.next
+/sample/.next
