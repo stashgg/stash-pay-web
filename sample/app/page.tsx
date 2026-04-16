@@ -64,6 +64,8 @@ export default function Playground() {
   const [url, setUrl] = useState('https://test.stashpreview.com/');
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isGeneratingSampleCheckout, setIsGeneratingSampleCheckout] =
+    useState(false);
 
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const nextIdRef = useRef(1);
@@ -115,6 +117,51 @@ export default function Playground() {
       .catch(() => log('error', 'Clipboard copy failed'));
   }, [config, log]);
 
+  const handleGenerateSampleCheckout = useCallback(async () => {
+    setIsGeneratingSampleCheckout(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const data: unknown = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const msg =
+          data &&
+          typeof data === 'object' &&
+          'error' in data &&
+          typeof (data as { error?: unknown }).error === 'string'
+            ? (data as { error: string }).error
+            : `Generate checkout failed (${res.status})`;
+        log('error', msg, data);
+        return;
+      }
+
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        !('url' in data) ||
+        typeof (data as { url?: unknown }).url !== 'string'
+      ) {
+        log('error', 'Checkout response missing url', data);
+        return;
+      }
+
+      setUrl((data as { url: string }).url);
+      log('info', 'Checkout URL set from sample generator');
+    } catch (e) {
+      log(
+        'error',
+        e instanceof Error ? e.message : 'Sample checkout request failed',
+        e,
+      );
+    } finally {
+      setIsGeneratingSampleCheckout(false);
+    }
+  }, [log]);
+
   const sdkProps = useMemo(() => sanitiseConfig(config), [config]);
 
   return (
@@ -143,6 +190,8 @@ export default function Playground() {
             canOpen={url.trim().length > 0}
             url={url}
             onUrlChange={setUrl}
+            onGenerateSampleCheckout={handleGenerateSampleCheckout}
+            isGeneratingSampleCheckout={isGeneratingSampleCheckout}
           />
         </aside>
 

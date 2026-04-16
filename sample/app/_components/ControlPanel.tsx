@@ -16,6 +16,8 @@ interface ControlPanelProps {
   canOpen: boolean;
   url: string;
   onUrlChange: (next: string) => void;
+  onGenerateSampleCheckout: () => void | Promise<void>;
+  isGeneratingSampleCheckout: boolean;
 }
 
 const POSITIONS: { value: StashPayPosition; label: string }[] = [
@@ -108,6 +110,8 @@ export function ControlPanel({
   canOpen,
   url,
   onUrlChange,
+  onGenerateSampleCheckout,
+  isGeneratingSampleCheckout,
 }: ControlPanelProps) {
   return (
     <div className="space-y-5">
@@ -124,6 +128,14 @@ export function ControlPanel({
           autoComplete="off"
           spellCheck={false}
         />
+        <button
+          type="button"
+          onClick={() => void onGenerateSampleCheckout()}
+          disabled={isGeneratingSampleCheckout}
+          className="h-10 w-full rounded-full border border-stash-border-strong bg-stash-paper text-[13px] font-semibold text-stash-text transition hover:bg-white disabled:cursor-not-allowed disabled:border-stash-border disabled:text-stash-text-soft"
+        >
+          {isGeneratingSampleCheckout ? 'Generating…' : 'Generate Sample Checkout'}
+        </button>
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={onOpen}
