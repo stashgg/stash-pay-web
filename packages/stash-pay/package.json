@@ -48,11 +48,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stashgg/stash-pay-web.git"
+    "url": "git+https://github.com/stashgg/stash-web.git"
   },
-  "homepage": "https://github.com/stashgg/stash-pay-web#readme",
+  "homepage": "https://github.com/stashgg/stash-web#readme",
   "bugs": {
-    "url": "https://github.com/stashgg/stash-pay-web/issues"
+    "url": "https://github.com/stashgg/stash-web/issues"
   },
   "author": "Stash",
   "license": "MIT",
