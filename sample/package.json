@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run build --workspace=@stashgg/stash-pay && npm run copy-umd",
     "dev": "next dev",
-    "prebuild": "npm run build --workspace=@stashgg/stash-pay",
+    "prebuild": "npm run build --workspace=@stashgg/stash-pay && npm run copy-umd",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "copy-umd": "node -e \"require('node:fs').copyFileSync('../packages/stash-pay/dist/umd/stash-pay.umd.global.js', 'public/stash-pay.umd.global.js')\""
   },
   "dependencies": {
     "@stashgg/stash-pay": "*",

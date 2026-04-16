@@ -1,44 +1,78 @@
 {
   "name": "@stashgg/stash-pay",
-  "version": "1.0.7",
-  "description": "React component for Stash pay checkout",
-  "main": "./dist/index.js",
+  "version": "2.0.0",
+  "description": "Embeddable Stash Pay checkout SDK — React component + framework-agnostic core + script-tag UMD.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
-    "./styles": "./dist/styles/stash-pay.css"
+    "./vanilla": {
+      "types": "./dist/vanilla.d.ts",
+      "import": "./dist/vanilla.js",
+      "require": "./dist/vanilla.cjs"
+    },
+    "./styles": "./dist/stash-pay.css",
+    "./styles.css": "./dist/stash-pay.css",
+    "./umd": "./dist/umd/stash-pay.umd.global.js",
+    "./package.json": "./package.json"
   },
+  "sideEffects": [
+    "./dist/umd/*",
+    "*.css"
+  ],
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "MIGRATION.md"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-css",
-    "copy-css": "mkdir -p dist/styles && cp src/styles/stash-pay.css dist/styles/stash-pay.css",
-    "dev": "tsc --watch"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
   },
   "keywords": [
     "stash",
+    "stash-pay",
     "payment",
     "checkout",
-    "react"
+    "iframe",
+    "react",
+    "sdk"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/stashgg/stash-web.git"
+    "url": "git+https://github.com/stashgg/stash-pay-web.git"
   },
-  "author": "",
+  "homepage": "https://github.com/stashgg/stash-pay-web#readme",
+  "bugs": {
+    "url": "https://github.com/stashgg/stash-pay-web/issues"
+  },
+  "author": "Stash",
   "license": "MIT",
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
     "typescript": "^5"
   }
 }

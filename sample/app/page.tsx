@@ -1,121 +1,173 @@
 'use client';
 
-import { useState } from 'react';
-import { StashPay } from '@stashgg/stash-pay';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  StashPay,
+  type PaymentFailureEvent,
+  type PaymentProcessingEvent,
+  type PaymentSuccessEvent,
+} from '@stashgg/stash-pay';
+import { CodeSnippet } from './_components/CodeSnippet';
+import { ControlPanel } from './_components/ControlPanel';
+import { ReactionLog, type LogEntry } from './_components/ReactionLog';
+import { StashLogo } from './_components/StashLogo';
+import { DEFAULT_CONFIG, type PlaygroundConfig } from './_lib/defaults';
 
-export default function Home() {
-  const [loading, setLoading] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [purchaseResult, setPurchaseResult] = useState<{ success: boolean; data?: Record<string, unknown> } | null>(null);
-  const [cardWidth, setCardWidth] = useState<string>('');
+type Action =
+  | { kind: 'patch'; patch: Partial<PlaygroundConfig> }
+  | { kind: 'backdrop'; patch: Partial<NonNullable<PlaygroundConfig['backdrop']>> }
+  | { kind: 'theme'; patch: Partial<NonNullable<PlaygroundConfig['theme']>> }
+  | { kind: 'iframe'; patch: Partial<NonNullable<PlaygroundConfig['iframe']>> };
 
-  const generateCheckoutLink = async () => {
-    setLoading(true);
-    setError(null);
-    setCheckoutUrl(null);
+function reducer(state: PlaygroundConfig, action: Action): PlaygroundConfig {
+  switch (action.kind) {
+    case 'patch':
+      return { ...state, ...action.patch };
+    case 'backdrop':
+      return { ...state, backdrop: { ...state.backdrop, ...action.patch } };
+    case 'theme':
+      return { ...state, theme: { ...state.theme, ...action.patch } };
+    case 'iframe':
+      return { ...state, iframe: { ...state.iframe, ...action.patch } };
+  }
+}
 
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}), // Uses default payload from API route
-      });
+function sanitiseConfig(cfg: PlaygroundConfig): PlaygroundConfig {
+  const clean: PlaygroundConfig = { ...cfg };
+  if (cfg.theme) {
+    const t = { ...cfg.theme };
+    (Object.keys(t) as (keyof typeof t)[]).forEach((k) => {
+      if (t[k] === '' || t[k] === undefined) delete t[k];
+    });
+    clean.theme = Object.keys(t).length > 0 ? t : undefined;
+  }
+  if (cfg.backdrop) {
+    const b = { ...cfg.backdrop };
+    if (b.color === '' || b.color === undefined) delete b.color;
+    if (b.opacity === undefined) delete b.opacity;
+    if (b.blur === undefined) delete b.blur;
+    if (b.hidden === false) delete b.hidden;
+    clean.backdrop = Object.keys(b).length > 0 ? b : undefined;
+  }
+  if (cfg.iframe) {
+    const i = { ...cfg.iframe };
+    (Object.keys(i) as (keyof typeof i)[]).forEach((k) => {
+      if (i[k] === '' || i[k] === undefined) delete i[k];
+    });
+    clean.iframe = Object.keys(i).length > 0 ? i : undefined;
+  }
+  return clean;
+}
 
-      const data = await response.json();
+export default function Playground() {
+  const [config, dispatch] = useReducer(reducer, DEFAULT_CONFIG);
+  const [url, setUrl] = useState('https://test.stashpreview.com/');
+  const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate checkout link');
-      }
+  const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const nextIdRef = useRef(1);
 
-      setCheckoutUrl(data.url);
-      setIsModalOpen(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const log = useCallback(
+    (name: LogEntry['name'], message?: string, payload?: unknown) => {
+      setLogEntries((prev) => [
+        { id: nextIdRef.current++, ts: Date.now(), name, message, payload },
+        ...prev,
+      ]);
+    },
+    [],
+  );
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
+  const update = useCallback(
+    (patch: Partial<PlaygroundConfig>) => dispatch({ kind: 'patch', patch }),
+    [],
+  );
+  const updateBackdrop = useCallback(
+    (patch: Partial<NonNullable<PlaygroundConfig['backdrop']>>) =>
+      dispatch({ kind: 'backdrop', patch }),
+    [],
+  );
+  const updateTheme = useCallback(
+    (patch: Partial<NonNullable<PlaygroundConfig['theme']>>) =>
+      dispatch({ kind: 'theme', patch }),
+    [],
+  );
+  const updateIframe = useCallback(
+    (patch: Partial<NonNullable<PlaygroundConfig['iframe']>>) =>
+      dispatch({ kind: 'iframe', patch }),
+    [],
+  );
 
-  const handlePurchaseSuccess = (data?: Record<string, unknown>) => {
-    setPurchaseResult({ success: true, data });
-    console.log('Purchase successful:', data);
-  };
+  const handleOpen = useCallback(() => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setActiveUrl(trimmed);
+    setIsOpen(true);
+  }, [url]);
 
-  const handlePurchaseFailed = (data?: Record<string, unknown>) => {
-    setPurchaseResult({ success: false, data });
-    console.log('Purchase failed:', data);
-  };
+  const handleClose = useCallback(() => setIsOpen(false), []);
+
+  const handleCopyConfig = useCallback(() => {
+    const snapshot = sanitiseConfig(config);
+    navigator.clipboard
+      .writeText(JSON.stringify(snapshot, null, 2))
+      .then(() => log('info', 'Config copied to clipboard'))
+      .catch(() => log('error', 'Clipboard copy failed'));
+  }, [config, log]);
+
+  const sdkProps = useMemo(() => sanitiseConfig(config), [config]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="max-w-2xl w-full space-y-6">
-        <h1 className="text-4xl font-bold mb-4 text-center">Stash Checkout Web Component</h1>
-        
-        <div className="space-y-2">
-          <label htmlFor="width" className="block text-sm font-medium text-gray-700">
-            Card Width (optional)
-          </label>
-          <input
-            id="width"
-            type="text"
-            value={cardWidth}
-            onChange={(e) => setCardWidth(e.target.value)}
-            placeholder="e.g., 500px, 80%, 50vw"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
-          <p className="text-xs text-gray-500">Leave empty for default width</p>
+    <main className="min-h-screen bg-stash-bg text-stash-text">
+      <header className="border-b border-stash-border">
+        <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-6 py-4">
+          <StashLogo className="text-stash-text" height={18} />
+          <span className="hidden text-[13px] text-stash-text-soft sm:inline">
+            · Pay SDK playground
+          </span>
         </div>
+      </header>
 
-        <button
-          onClick={generateCheckoutLink}
-          disabled={loading}
-          className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Generating...' : 'Generate Checkout Link'}
-        </button>
+      <div className="mx-auto grid max-w-[1400px] gap-0 md:grid-cols-[380px_minmax(0,1fr)]">
+        <aside className="max-h-[calc(100vh-57px)] overflow-y-auto border-b border-stash-border p-6 md:border-b-0 md:border-r">
+          <ControlPanel
+            config={config}
+            update={update}
+            updateBackdrop={updateBackdrop}
+            updateTheme={updateTheme}
+            updateIframe={updateIframe}
+            onOpen={handleOpen}
+            onClose={handleClose}
+            onCopyConfig={handleCopyConfig}
+            isOpen={isOpen}
+            canOpen={url.trim().length > 0}
+            url={url}
+            onUrlChange={setUrl}
+          />
+        </aside>
 
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            <p className="font-semibold">Error:</p>
-            <p>{error}</p>
-          </div>
-        )}
-
-        {purchaseResult && (
-          <div
-            className={`p-4 border rounded-lg ${
-              purchaseResult.success
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-red-50 border-red-200 text-red-800'
-            }`}
-          >
-            <p className="font-semibold">
-              {purchaseResult.success ? '✓ Payment Successful' : '✗ Payment Failed'}
-            </p>
-            {purchaseResult.data && (
-              <pre className="mt-2 text-xs overflow-auto">
-                {JSON.stringify(purchaseResult.data, null, 2)}
-              </pre>
-            )}
-          </div>
-        )}
+        <div className="grid h-[calc(100vh-57px)] grid-rows-[minmax(0,1fr)_minmax(0,1fr)]">
+          <ReactionLog entries={logEntries} onClear={() => setLogEntries([])} />
+          <CodeSnippet config={sdkProps} checkoutUrl={url.trim()} />
+        </div>
       </div>
 
       <StashPay
-        isOpen={isModalOpen}
-        checkoutUrl={checkoutUrl}
-        onClose={handleCloseModal}
-        onPurchaseSuccess={handlePurchaseSuccess}
-        onPurchaseFailed={handlePurchaseFailed}
-        width={cardWidth || "800px"}
+        isOpen={isOpen}
+        checkoutUrl={activeUrl}
+        {...sdkProps}
+        onOpen={() => log('open')}
+        onClose={() => {
+          setIsOpen(false);
+          log('close');
+        }}
+        onReady={() => log('ready')}
+        onSuccess={(e: PaymentSuccessEvent) => log('success', e.orderId, e)}
+        onFailure={(e: PaymentFailureEvent) => log('failure', e.message, e)}
+        onProcessing={(e: PaymentProcessingEvent) =>
+          log('processing', undefined, e)
+        }
+        onError={(e) => log('error', e.message, { stack: e.stack })}
       />
     </main>
   );

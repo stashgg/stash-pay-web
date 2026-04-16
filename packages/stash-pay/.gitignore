@@ -1,0 +1,10 @@
+# Build outputs — tsup emits to ./dist
+dist/
+*.tsbuildinfo
+
+# Dependencies (root .gitignore covers this too, but explicit for clarity)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
