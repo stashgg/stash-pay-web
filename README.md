@@ -1,4 +1,4 @@
-# Stash Pay for Web [![npm](https://img.shields.io/npm/v/@stashgg/stash-pay.svg)](https://www.npmjs.com/package/@stashgg/stash-pay)
+# Stash Pay for Web [![npm](https://img.shields.io/npm/v/@stashgg/stash-pay.svg)](https://www.npmjs.com/package/@stashgg/stash-pay) [![Build and Publish](https://github.com/stashgg/stash-web/actions/workflows/publish.yml/badge.svg)](https://github.com/stashgg/stash-web/actions/workflows/publish.yml)
 
 <p align="left">
   <img src=".github/assets/stash_web.png" width="128" height="128" alt="Stash Web Logo"/>
@@ -7,6 +7,37 @@
 Embeddable [Stash Pay](https://docs.stash.gg/guides/stash-pay/integration) checkout for browsers: a React component, a framework-agnostic ESM core, and a script-tag UMD bundle (including Unity WebGL and plain HTML). This repository is the source for the [`@stashgg/stash-pay`](https://www.npmjs.com/package/@stashgg/stash-pay) npm package plus a Next.js playground.
 
 For native mobile and engine integrations, see [stash-native](https://github.com/stashgg/stash-native), [stash-unity](https://github.com/stashgg/stash-unity), and [stash-unreal](https://github.com/stashgg/stash-unreal).
+
+## Table of contents
+
+**Overview**
+
+- [Integration flow](#integration-flow)
+- [Repository layout](#repository-layout)
+  - [Requirements](#requirements)
+- [Downloads / install](#downloads--install)
+- [Quick start (React)](#quick-start-react)
+- [Callbacks / events](#callbacks--events)
+
+**Repository**
+
+- [Monorepo folder structure](#monorepo-folder-structure)
+- [Sample playground](./sample/README.md)
+
+**Developing**
+
+- [Developing this repository](#developing-this-repository)
+  - [Installation](#installation)
+  - [Development](#development)
+  - [Building](#building)
+  - [Workspace scripts](#workspace-scripts)
+
+**Reference**
+
+- [Environment variables (sample only)](#environment-variables-sample-only)
+- [Documentation](#documentation)
+- [Versioning](#versioning)
+- [Support](#support)
 
 ## Integration flow
 
@@ -23,9 +54,9 @@ Server-side purchase verification (webhooks, entitlements) remains your responsi
 | --- | --- | --- |
 | **npm SDK** | [packages/stash-pay/README.md](./packages/stash-pay/README.md) | React API, vanilla ESM (`@stashgg/stash-pay/vanilla`), UMD bundle, props and events reference, theming |
 | **v1 → v2** | [packages/stash-pay/MIGRATION.md](./packages/stash-pay/MIGRATION.md) | Upgrade notes for the major SDK revision |
-| **Playground** | [sample/](./sample/) | Next.js 16 app: paste a checkout URL, try layout presets, watch callbacks |
+| **Playground** | [sample/README.md](./sample/README.md) · [sample/](./sample/) | Next.js 16 app (React 19): control panel for layout/theme/backdrop/iframe, live callback log, code snippet export, optional checkout generation via API |
 
-The published playground is at [https://stash-pay-web.vercel.app/](https://stash-pay-web.vercel.app/). The sample also includes a no-React smoke page at `/umd-test.html` that loads the UMD build via `<script>`.
+The published playground is at [https://pay-playground.stashpreview.com/](https://pay-playground.stashpreview.com/). A no-React page at `/umd-test.html` loads the copied UMD build from `public/` (see [sample/README.md](./sample/README.md)).
 
 #### Requirements
 
@@ -53,11 +84,12 @@ See [packages/stash-pay/README.md](./packages/stash-pay/README.md) for `window.S
 
 **Source**
 
-Clone this repo if you want to run the playground or contribute to the SDK.
+This repository includes the playground and package source—use it if you want to run `npm install` locally and develop or contribute to the SDK.
 
 ## Quick start (React)
 
 ```tsx
+import { useState } from 'react';
 import { StashPay } from '@stashgg/stash-pay';
 import '@stashgg/stash-pay/styles'; // once in your app entry
 
@@ -102,7 +134,7 @@ Source for `@stashgg/stash-pay`: React wrapper, core controller, CSS, UMD entry.
 
 #### ./sample
 
-Next.js playground: workspace dependency on the local package, API route that calls Stash when `STASH_API_KEY` is set.
+Next.js playground (`stash-pay-sample`): depends on `@stashgg/stash-pay` from the workspace; includes `app/api/checkout` when you want generated demo URLs (`STASH_API_KEY` in `sample/.env.local`). Details, UMD copy step, and file map: **[sample/README.md](./sample/README.md)**.
 
 ## Developing this repository
 
@@ -118,7 +150,7 @@ npm install
 npm run dev
 ```
 
-Starts the playground at [http://localhost:3000](http://localhost:3000). The SDK is linked from the workspace; after editing `packages/stash-pay/src/`, run `npm run build:package` (or use the package’s `npm run dev` watch in that folder) so the sample picks up changes.
+Opens the playground at [http://localhost:3000](http://localhost:3000). Edits under `packages/stash-pay/src/` only show up after the package is rebuilt—run `npm run build:package` or see **Building** and **Workspace scripts** below.
 
 ### Building
 
@@ -144,7 +176,7 @@ For the playground’s `app/api/checkout` route, create `sample/.env.local`:
 STASH_API_KEY=your_stash_api_key_here
 ```
 
-Without this key you can still paste a checkout URL generated elsewhere.
+Without this key you can still paste a checkout URL generated elsewhere. See **[sample/README.md](./sample/README.md)** for how the playground uses this route.
 
 ## Documentation
 
@@ -162,5 +194,5 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 
 ## Support
 
-- Documentation: https://docs.stash.gg
-- Email: developers@stash.gg
+- Documentation: [https://docs.stash.gg](https://docs.stash.gg)
+- Email: [developers@stash.gg](mailto:developers@stash.gg)
