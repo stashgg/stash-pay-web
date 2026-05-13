@@ -1,5 +1,9 @@
 # Stash Pay for Web [![npm](https://img.shields.io/npm/v/@stashgg/stash-pay.svg)](https://www.npmjs.com/package/@stashgg/stash-pay)
 
+<p align="left">
+  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_unity.png" width="128" height="128" alt="Stash logo"/>
+</p>
+
 Embeddable [Stash Pay](https://docs.stash.gg/guides/stash-pay/integration) checkout for browsers: a React component, a framework-agnostic ESM core, and a script-tag UMD bundle (including Unity WebGL and plain HTML). This repository is the source for the [`@stashgg/stash-pay`](https://www.npmjs.com/package/@stashgg/stash-pay) npm package plus a Next.js playground.
 
 For native mobile and engine integrations, see [stash-native](https://github.com/stashgg/stash-native), [stash-unity](https://github.com/stashgg/stash-unity), and [stash-unreal](https://github.com/stashgg/stash-unreal).
