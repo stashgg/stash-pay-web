@@ -5,6 +5,8 @@
 
 export { StashPayController, open } from './controller';
 export { injectStyles } from './styles-inject';
+export { StashPayError } from './errors';
+export type { StashPayErrorCode } from './errors';
 export type {
   PaymentFailureEvent,
   PaymentProcessingEvent,

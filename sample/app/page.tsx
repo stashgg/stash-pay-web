@@ -216,7 +216,16 @@ export default function Playground() {
         onProcessing={(e: PaymentProcessingEvent) =>
           log('processing', undefined, e)
         }
-        onError={(e) => log('error', e.message, { stack: e.stack })}
+        onError={(e) => {
+          // An invalid URL never opens the modal — keep the playground's
+          // controlled `isOpen` in sync, the recommended host-side pattern.
+          setIsOpen(false);
+          log('error', `${e.code}: ${e.message}`, {
+            code: e.code,
+            details: e.details,
+            stack: e.stack,
+          });
+        }}
       />
     </main>
   );

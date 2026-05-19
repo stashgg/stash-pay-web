@@ -42,4 +42,6 @@ export const DEFAULT_CONFIG: PlaygroundConfig = {
     title: 'Stash Pay checkout',
   },
   ariaLabel: undefined,
+  allowedCheckoutHosts: undefined,
+  loadTimeout: undefined,
 };

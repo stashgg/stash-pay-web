@@ -19,9 +19,11 @@ import {
   type BuiltTree,
 } from './dom';
 import { Emitter } from './emitter';
+import { StashPayError } from './errors';
 import { parseMessage } from './events';
 import { createFocusTrap, type FocusTrap } from './focus-trap';
 import { applyTheme, readAnimationDurationMs } from './theme';
+import { validateCheckoutUrl, type ValidatedUrl } from './url';
 import type {
   StashPayEventMap,
   StashPayHandle,
@@ -39,24 +41,20 @@ function requireDocument(): void {
 }
 
 /**
- * Produce the iframe `src` URL, honouring `checkoutTheme` by appending
- * (or replacing) a `theme` query parameter. Falls back to string
- * concatenation for malformed URLs so invalid input doesn't crash mount.
+ * Validate `checkoutUrl` and, on success, return the resolved iframe `src`
+ * URL with `checkoutTheme` applied as a `theme` query parameter. An invalid
+ * URL yields a typed `StashPayError` instead of a value that hangs the iframe.
  */
-function resolveIframeSrc(options: StashPayOptions): string {
-  const base = options.checkoutUrl;
-  const theme = options.checkoutTheme;
-  if (!theme) return base;
-  try {
-    const href =
-      typeof location !== 'undefined' ? location.href : 'http://localhost/';
-    const url = new URL(base, href);
-    url.searchParams.set('theme', theme);
-    return url.toString();
-  } catch {
-    const sep = base.includes('?') ? '&' : '?';
-    return `${base}${sep}theme=${encodeURIComponent(theme)}`;
+function resolveCheckoutUrl(options: StashPayOptions): ValidatedUrl {
+  const result = validateCheckoutUrl(
+    options.checkoutUrl,
+    options.allowedCheckoutHosts,
+  );
+  if (!result.ok) return result;
+  if (options.checkoutTheme) {
+    result.url.searchParams.set('theme', options.checkoutTheme);
   }
+  return result;
 }
 
 export class StashPayController {
@@ -72,9 +70,15 @@ export class StashPayController {
   private backdropHandler: ((ev: MouseEvent) => void) | null = null;
   private closeHandler: (() => void) | null = null;
   private iframeLoadHandler: (() => void) | null = null;
+  private iframeErrorHandler: (() => void) | null = null;
   private closeTimeout: ReturnType<typeof setTimeout> | null = null;
+  private loadTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
   private _state: StashPayState = 'idle';
   private _hasLoadedOnce = false;
+  /** Terminal-event latch — set by the first success/failure. See `dispatchPaymentEvent`. */
+  private _settled = false;
+  /** Load-outcome latch — the first of load / error / timeout wins. */
+  private _loadSettled = false;
   private _currentSrc: string | null = null;
 
   constructor(options: StashPayOptions) {
@@ -103,6 +107,18 @@ export class StashPayController {
     }
     requireDocument();
 
+    // Wire the option callbacks first so a checkout-URL validation failure can
+    // reach `onError` (and any pre-mount `.on('error')` handler).
+    this.wireCallbacks();
+
+    // Validate the checkout URL up front. An invalid URL emits `error` and
+    // mounts nothing — no DOM, no spinner, no open.
+    const resolved = resolveCheckoutUrl(this.options);
+    if (!resolved.ok) {
+      this.emitter.emit('error', resolved.error);
+      return;
+    }
+
     const container = this.options.container ?? document.body;
     if (container.dataset[DATA_ATTR.active]) {
       throw new Error(
@@ -121,8 +137,7 @@ export class StashPayController {
       container.appendChild(tree.root);
 
       this.attachListeners();
-      this.setIframeSrc(resolveIframeSrc(this.options));
-      this.wireCallbacks();
+      this.setIframeSrc(resolved.url.toString());
 
       // Two rAFs let the browser paint the initial `closed` state before we
       // flip to `open`, which is what makes the transition animate.
@@ -130,6 +145,7 @@ export class StashPayController {
         requestAnimationFrame(() => this.openInternal());
       });
     } catch (err) {
+      this.clearLoadTimeout();
       delete container.dataset[DATA_ATTR.active];
       this.container = null;
       this.tree = null;
@@ -157,6 +173,9 @@ export class StashPayController {
     if (!this.tree) return;
     if (this._state !== 'open') return;
 
+    // Closing mid-load cancels any pending load-timeout NETWORK_ERROR.
+    this.clearLoadTimeout();
+
     this._state = 'closing';
     this.setStateAttr('closing');
     this.focusTrap?.deactivate();
@@ -176,19 +195,29 @@ export class StashPayController {
 
   update(partial: Partial<StashPayOptions>): void {
     if (this._state === 'destroyed') return;
-    const prev = this.options;
-    this.options = { ...prev, ...partial };
+    this.options = { ...this.options, ...partial };
 
     if (!this.tree) return;
 
     if ('theme' in partial) applyTheme(this.tree.root, this.options.theme);
     applyOptionsToDom(this.tree, this.options);
 
-    // Reload the iframe if the effective src changed (either checkoutUrl
-    // or checkoutTheme).
-    const nextSrc = resolveIframeSrc(this.options);
-    const prevSrc = resolveIframeSrc(prev);
-    if (nextSrc !== prevSrc) this.setIframeSrc(nextSrc);
+    // Re-validate and reload the iframe only when a URL-affecting option
+    // actually changed.
+    if (
+      'checkoutUrl' in partial ||
+      'checkoutTheme' in partial ||
+      'allowedCheckoutHosts' in partial
+    ) {
+      const resolved = resolveCheckoutUrl(this.options);
+      if (!resolved.ok) {
+        // Invalid new URL: surface the error, keep the current iframe content.
+        this.emitter.emit('error', resolved.error);
+      } else {
+        const nextSrc = resolved.url.toString();
+        if (nextSrc !== this._currentSrc) this.setIframeSrc(nextSrc);
+      }
+    }
 
     // Re-wire callbacks in case any on* handler changed.
     this.wireCallbacks();
@@ -217,6 +246,7 @@ export class StashPayController {
         clearTimeout(this.closeTimeout);
         this.closeTimeout = null;
       }
+      this.clearLoadTimeout();
       if (this.tree?.root.parentNode) {
         this.tree.root.parentNode.removeChild(this.tree.root);
       }
@@ -254,12 +284,56 @@ export class StashPayController {
     this.tree?.root.setAttribute(DATA_ATTR.state, state);
   }
 
+  /**
+   * Point the iframe at a (validated) checkout URL. This is the single reset
+   * point for the terminal-event latch: a new checkout document begins a fresh
+   * session that may emit `success`/`failure` again.
+   */
   private setIframeSrc(url: string): void {
     if (!this.tree) return;
+    this.clearLoadTimeout();
     this._hasLoadedOnce = false;
+    this._settled = false;
+    this._loadSettled = false;
     this._currentSrc = url;
     this.tree.root.setAttribute(DATA_ATTR.loading, 'true');
     this.tree.iframe.src = url;
+    this.armLoadTimeout(url);
+  }
+
+  /**
+   * Arm the load-failure timeout. Opt-in: nothing happens unless `loadTimeout`
+   * is a positive number. A safety net for a syntactically valid `checkoutUrl`
+   * whose server never responds (the iframe `load` event would never fire).
+   */
+  private armLoadTimeout(srcAtArm: string): void {
+    const ms = this.options.loadTimeout;
+    if (typeof ms !== 'number' || ms <= 0) return;
+    this.loadTimeoutTimer = setTimeout(() => {
+      this.loadTimeoutTimer = null;
+      if (this._state === 'destroyed' || !this.tree) return;
+      if (this._currentSrc !== srcAtArm) return; // a newer load superseded us
+      if (this._loadSettled) return;
+      this._loadSettled = true;
+      // Stop the spinner; do not close the modal or clear `src` — a late but
+      // successful load can still self-heal via `iframeLoadHandler`.
+      this.tree.root.setAttribute(DATA_ATTR.loading, 'false');
+      this.emitter.emit(
+        'error',
+        new StashPayError(
+          'NETWORK_ERROR',
+          `Checkout did not load within ${ms}ms.`,
+          { checkoutUrl: this.options.checkoutUrl, timeoutMs: ms },
+        ),
+      );
+    }, ms);
+  }
+
+  private clearLoadTimeout(): void {
+    if (this.loadTimeoutTimer) {
+      clearTimeout(this.loadTimeoutTimer);
+      this.loadTimeoutTimer = null;
+    }
   }
 
   private attachListeners(): void {
@@ -293,6 +367,9 @@ export class StashPayController {
 
     this.iframeLoadHandler = () => {
       if (!this._currentSrc) return;
+      // A successful load wins the load-outcome race and cancels the timeout.
+      this._loadSettled = true;
+      this.clearLoadTimeout();
       const wasFirst = !this._hasLoadedOnce;
       this._hasLoadedOnce = true;
       root.setAttribute(DATA_ATTR.loading, 'false');
@@ -309,6 +386,23 @@ export class StashPayController {
       if (wasFirst) this.emitter.emit('ready');
     };
     iframe.addEventListener('load', this.iframeLoadHandler);
+
+    // Best-effort hard-failure signal. The iframe `error` event is unreliable
+    // (it does not fire for HTTP 4xx/5xx and is inconsistent cross-origin) —
+    // `loadTimeout` is the dependable safety net.
+    this.iframeErrorHandler = () => {
+      if (!this.tree || this._loadSettled) return;
+      this._loadSettled = true;
+      this.clearLoadTimeout();
+      this.tree.root.setAttribute(DATA_ATTR.loading, 'false');
+      this.emitter.emit(
+        'error',
+        new StashPayError('NETWORK_ERROR', 'Checkout iframe failed to load.', {
+          checkoutUrl: this.options.checkoutUrl,
+        }),
+      );
+    };
+    iframe.addEventListener('error', this.iframeErrorHandler);
 
     this.focusTrap = createFocusTrap(root, () =>
       this.tree ? collectFocusables(this.tree) : [],
@@ -334,10 +428,14 @@ export class StashPayController {
       if (this.iframeLoadHandler) {
         this.tree.iframe.removeEventListener('load', this.iframeLoadHandler);
       }
+      if (this.iframeErrorHandler) {
+        this.tree.iframe.removeEventListener('error', this.iframeErrorHandler);
+      }
     }
     this.backdropHandler = null;
     this.closeHandler = null;
     this.iframeLoadHandler = null;
+    this.iframeErrorHandler = null;
   }
 
   /** Wire the `on*` option callbacks; user-registered `.on()` handlers persist. */
@@ -361,13 +459,25 @@ export class StashPayController {
     add('processing', this.options.onProcessing);
   }
 
+  /**
+   * Single funnel for payment events from both delivery channels (the
+   * in-iframe bridge and the postMessage fallback). `success`/`failure` are
+   * terminal: the first one latches `_settled`, and every later payment event —
+   * a duplicate from the other channel, or a stale event — is dropped. The
+   * latch is reset only by `setIframeSrc` (a new checkout document).
+   * `processing` is not terminal and may fire repeatedly until a terminal
+   * event arrives.
+   */
   private dispatchPaymentEvent(event: StashPaymentEvent): void {
+    if (this._settled) return;
     switch (event.type) {
       case 'success':
+        this._settled = true;
         this.emitter.emit('success', event);
         if (this.options.autoCloseOnSuccess !== false) this.close();
         break;
       case 'failure':
+        this._settled = true;
         this.emitter.emit('failure', event);
         if (this.options.autoCloseOnFailure !== false) this.close();
         break;

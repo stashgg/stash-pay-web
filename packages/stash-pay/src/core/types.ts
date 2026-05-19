@@ -3,6 +3,8 @@
  * Stable contract — anything exported here is part of the semver API.
  */
 
+import type { StashPayError } from './errors';
+
 export type StashPayPosition =
   | 'bottom-sheet'
   | 'center-modal'
@@ -88,6 +90,8 @@ export interface PaymentSuccessEvent {
 
 export interface PaymentFailureEvent {
   type: 'failure';
+  /** Present when the checkout reached an order-bound state before failing. */
+  orderId?: string;
   errorCode?: string;
   message?: string;
   raw: Record<string, unknown>;
@@ -151,11 +155,26 @@ export interface StashPayOptions {
   // Motion (ms) — overrides `theme.animationDuration`.
   animationDuration?: number;
 
+  // Reliability
+  /**
+   * Allowlist of hostnames `checkoutUrl` may use. Entries may be exact hosts
+   * (`'pay.stash.gg'`) or `'*.domain'` wildcards (matching the apex and any
+   * subdomain). Undefined or empty = any valid http(s) URL is accepted. A URL
+   * whose host is not allowed fires `onError` with code `DOMAIN_NOT_ALLOWED`.
+   */
+  allowedCheckoutHosts?: string[];
+  /**
+   * Milliseconds to wait for the checkout iframe's first load before firing
+   * `onError` with code `NETWORK_ERROR`. Omitted or `0` disables the timeout
+   * (the default — the timeout is opt-in).
+   */
+  loadTimeout?: number;
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
   onReady?: () => void;
-  onError?: (e: Error) => void;
+  onError?: (e: StashPayError) => void;
   onSuccess?: (e: PaymentSuccessEvent) => void;
   onFailure?: (e: PaymentFailureEvent) => void;
   onProcessing?: (e: PaymentProcessingEvent) => void;
@@ -169,7 +188,7 @@ export interface StashPayEventMap {
   open: () => void;
   close: () => void;
   ready: () => void;
-  error: (err: Error) => void;
+  error: (err: StashPayError) => void;
   success: (e: PaymentSuccessEvent) => void;
   failure: (e: PaymentFailureEvent) => void;
   processing: (e: PaymentProcessingEvent) => void;

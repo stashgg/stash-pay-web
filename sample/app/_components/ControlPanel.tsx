@@ -173,12 +173,21 @@ export function ControlPanel({
             ))}
           </div>
         </div>
-        <button
-          onClick={onCopyConfig}
-          className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted"
-        >
-          Copy config JSON →
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            onClick={onCopyConfig}
+            className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted"
+          >
+            Copy config JSON →
+          </button>
+          <button
+            type="button"
+            onClick={() => onUrlChange('not-a-valid-url')}
+            className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted"
+          >
+            Try an invalid URL →
+          </button>
+        </div>
       </Section>
 
       {/* Position */}
@@ -406,6 +415,42 @@ export function ControlPanel({
             placeholder="Stash Pay checkout"
             value={config.ariaLabel ?? ''}
             onChange={(e) => update({ ariaLabel: e.target.value || undefined })}
+          />
+        </Row>
+      </Section>
+
+      {/* Validation & loading */}
+      <Section title="Validation & loading">
+        <Row label="Allowed hosts">
+          <input
+            type="text"
+            className={input}
+            placeholder="pay.stash.gg, *.stashpreview.com"
+            value={(config.allowedCheckoutHosts ?? []).join(', ')}
+            onChange={(e) => {
+              const hosts = e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+              update({
+                allowedCheckoutHosts: hosts.length > 0 ? hosts : undefined,
+              });
+            }}
+          />
+        </Row>
+        <Row label="Load timeout (ms)">
+          <input
+            type="number"
+            className={input + ' text-right'}
+            placeholder="off"
+            value={config.loadTimeout ?? ''}
+            onChange={(e) =>
+              update({
+                loadTimeout: e.target.value
+                  ? Number(e.target.value)
+                  : undefined,
+              })
+            }
           />
         </Row>
       </Section>

@@ -103,9 +103,12 @@ const handle = open({
 | `animationDuration` | `number` (ms) | `300` | Overrides the easing duration. |
 | `ariaLabel` | `string` | `'Stash Pay checkout'` | |
 | `iframe` | `StashPayIframeOptions` | — | See below. |
+| `allowedCheckoutHosts` | `string[]` | — | Optional host allowlist for `checkoutUrl`. Entries are exact hosts (`pay.stash.gg`) or `*.domain` wildcards (apex + any subdomain). If set and the URL's host is not allowed, `onError` fires with `DOMAIN_NOT_ALLOWED` and the modal does not open. Distinct from `iframe.allowedOrigins`, which validates `postMessage` origins. |
+| `loadTimeout` | `number` (ms) | — | If the checkout iframe does not load within this many ms, `onError` fires with `NETWORK_ERROR`. Omitted or `0` disables the timeout (opt-in). |
 | `injectStyles` | `boolean` | UMD: `true`, else `false` | Runtime `<style>` injection toggle. |
 | `cspNonce` | `string` | — | Applied to the injected `<style>` when runtime injection is enabled. |
-| `onOpen / onClose / onReady / onError / onSuccess / onFailure / onProcessing` | fn | — | Callbacks. |
+| `onOpen / onClose / onReady / onSuccess / onFailure / onProcessing` | fn | — | Callbacks. |
+| `onError` | `(e: StashPayError) => void` | — | Receives a typed error — see [Error handling](#error-handling). |
 
 ### Iframe options
 
@@ -126,11 +129,59 @@ interface StashPayIframeOptions {
 ```ts
 type StashPaymentEvent =
   | { type: 'success';    orderId?: string;   raw: Record<string, unknown> }
-  | { type: 'failure';    errorCode?: string; message?: string; raw: Record<string, unknown> }
+  | { type: 'failure';    orderId?: string;   errorCode?: string; message?: string; raw: Record<string, unknown> }
   | { type: 'processing'; raw: Record<string, unknown> };
 ```
 
-Every callback receives a structured event plus a `raw` escape hatch containing every field the checkout page emitted, so forward-compatible fields can be read without a library bump.
+Every callback receives a structured event plus a `raw` escape hatch containing every field the checkout page emitted, so forward-compatible fields can be read without a library bump. `orderId` is present on `failure` when the checkout reached an order-bound state before failing — useful for reconciliation and support.
+
+### Callback delivery guarantees
+
+- `onSuccess` and `onFailure` are **terminal** — each fires **at most once per checkout session**. The checkout can deliver payment events over two channels (the `window.stash_sdk` bridge and `postMessage`); duplicate or late terminal events are dropped.
+- `onProcessing` is **not** terminal and may fire multiple times before a terminal event.
+- `onOpen`, `onReady`, and `onClose` each fire once per open/close cycle.
+- Re-pointing the component at a new `checkoutUrl` starts a fresh session, after which a terminal callback may fire again.
+
+## Error handling
+
+`onError` receives a `StashPayError` — an `Error` subclass with a machine-readable `code`:
+
+```ts
+class StashPayError extends Error {
+  code: StashPayErrorCode;
+  details?: Record<string, unknown>;
+}
+
+type StashPayErrorCode =
+  | 'INVALID_URL'         // checkoutUrl is empty, unparseable, or not http(s)
+  | 'DOMAIN_NOT_ALLOWED'  // checkoutUrl host is not in allowedCheckoutHosts
+  | 'NETWORK_ERROR'       // the checkout iframe failed to load (or timed out)
+  | 'MOUNT_ERROR'         // the modal could not be mounted into the DOM
+  | 'UNKNOWN';
+```
+
+`StashPayError` and `StashPayErrorCode` are exported from the package root. Branch on
+`err.code` rather than `instanceof` — a bundled copy of the class can differ by reference.
+
+```tsx
+<StashPay
+  isOpen={open}
+  checkoutUrl={url}
+  allowedCheckoutHosts={['pay.stash.gg', '*.stash.gg']}
+  loadTimeout={15000}
+  onError={(e) => {
+    if (e.code === 'INVALID_URL') showBrokenLinkMessage();
+    else reportError(e);
+    setOpen(false);
+  }}
+/>
+```
+
+The SDK validates `checkoutUrl` before it touches the iframe. An invalid URL (empty,
+unparseable, a non-`http(s)` scheme such as `javascript:`/`data:`, or a host outside
+`allowedCheckoutHosts`) fires `onError` and the modal **does not open** — it no longer
+hangs on an endless loading spinner. For a syntactically valid URL whose server never
+responds, set `loadTimeout` to surface a `NETWORK_ERROR` after a bounded wait.
 
 ## Theming
 

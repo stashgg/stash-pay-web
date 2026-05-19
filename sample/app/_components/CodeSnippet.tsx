@@ -66,6 +66,8 @@ const PROP_ORDER: (keyof PlaygroundConfig)[] = [
   'backdrop',
   'theme',
   'iframe',
+  'allowedCheckoutHosts',
+  'loadTimeout',
 ];
 
 function buildReactSnippet(config: PlaygroundConfig, url: string): string {
@@ -85,6 +87,7 @@ function buildReactSnippet(config: PlaygroundConfig, url: string): string {
   lines.push(
     `  onSuccess={(e) => console.log('paid', e.orderId)}`,
     `  onFailure={(e) => console.log('failed', e.message)}`,
+    `  onError={(e) => console.log(e.code, e.message)}`,
     `  onClose={() => setIsOpen(false)}`,
     `/>`,
   );
@@ -109,6 +112,7 @@ function buildVanillaSnippet(config: PlaygroundConfig, url: string): string {
     ``,
     `  handle.on('success', (e) => console.log('paid', e.orderId));`,
     `  handle.on('failure', (e) => console.log('failed', e.message));`,
+    `  handle.on('error', (e) => console.log(e.code, e.message));`,
     `  handle.on('close', () => console.log('closed'));`,
     `</script>`,
   ];

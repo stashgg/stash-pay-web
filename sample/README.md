@@ -29,7 +29,8 @@ The main playground is `app/page.tsx`:
 
 - **Control panel** — Layout/preset controls, checkout URL field, optional **Generate sample checkout** (calls the API route below).
 - **Theme, backdrop, iframe** — Tweak styling and iframe-related options passed through to `<StashPay />`.
-- **Reaction log** — Live stream of SDK callbacks (`open`, `close`, `ready`, success, failure, processing, errors).
+- **Validation & loading** — Set an `allowedCheckoutHosts` allowlist and an opt-in `loadTimeout`. The **Try an invalid URL** link exercises the `onError` path (invalid URLs no longer open the modal).
+- **Reaction log** — Live stream of SDK callbacks (`open`, `close`, `ready`, success, failure, processing, errors with their `code`).
 - **Code snippet** — JSON view of the current prop configuration for quick copy/export.
 
 The URL field defaults to [`https://test.stashpreview.com/`](https://test.stashpreview.com/) so you can open checkout and observe events without wiring your own backend first.

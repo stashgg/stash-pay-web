@@ -72,6 +72,7 @@ export function installBridge(
         const raw = coerceRaw(payload);
         handlers.onFailure({
           type: 'failure',
+          orderId: readString(raw, 'orderId'),
           errorCode: readString(raw, 'errorCode'),
           message: readString(raw, 'message'),
           raw,

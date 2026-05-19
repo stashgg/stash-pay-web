@@ -121,10 +121,12 @@ Common handlers (shared across React options, vanilla `open()`, and UMD). See th
 | **onOpen** | Checkout surface opened |
 | **onClose** | User or code closed the dialog |
 | **onReady** | Host UI ready |
-| **onError** | Host or transport error |
+| **onError** | Host or transport error — receives a typed `StashPayError` with an error `code` (`INVALID_URL`, `NETWORK_ERROR`, …) |
 | **onSuccess** | Payment completed successfully in checkout |
 | **onFailure** | Payment failed in checkout |
 | **onProcessing** | Long-running / intermediate checkout state |
+
+`onSuccess` and `onFailure` fire at most once per checkout session; an invalid `checkoutUrl` fails fast through `onError` instead of hanging on a loading spinner. See [error handling](./packages/stash-pay/README.md#error-handling) for the full error-code list.
 
 ## Monorepo folder structure
 

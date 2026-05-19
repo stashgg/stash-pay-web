@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { StashPayController } from '../core/controller';
+import { toStashPayError, type StashPayError } from '../core/errors';
 import type {
   PaymentFailureEvent,
   PaymentProcessingEvent,
@@ -55,11 +56,17 @@ export interface StashPayProps {
   // Motion
   animationDuration?: number;
 
+  // Reliability
+  /** Host allowlist for `checkoutUrl`; exact hosts or `*.domain` wildcards. */
+  allowedCheckoutHosts?: string[];
+  /** Ms to wait for the iframe's first load before `onError(NETWORK_ERROR)`. Omitted/0 = off. */
+  loadTimeout?: number;
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
   onReady?: () => void;
-  onError?: (e: Error) => void;
+  onError?: (e: StashPayError) => void;
   onSuccess?: (e: PaymentSuccessEvent) => void;
   onFailure?: (e: PaymentFailureEvent) => void;
   onProcessing?: (e: PaymentProcessingEvent) => void;
@@ -88,6 +95,8 @@ const DOM_OPTION_KEYS: (keyof StashPayProps)[] = [
   'ariaLabel',
   'iframe',
   'animationDuration',
+  'allowedCheckoutHosts',
+  'loadTimeout',
 ];
 
 function buildOptions(
@@ -115,6 +124,8 @@ function buildOptions(
     ariaLabel: p.ariaLabel,
     iframe: p.iframe,
     animationDuration: p.animationDuration,
+    allowedCheckoutHosts: p.allowedCheckoutHosts,
+    loadTimeout: p.loadTimeout,
     // Callback proxies — stable identity, always the latest closure.
     onOpen: () => propsRef.current.onOpen?.(),
     onClose: () => propsRef.current.onClose?.(),
@@ -160,7 +171,7 @@ export function StashPay(props: StashPayProps): null {
       controller.mount();
     } catch (err) {
       controllerRef.current = null;
-      propsRef.current.onError?.(err as Error);
+      propsRef.current.onError?.(toStashPayError(err, 'MOUNT_ERROR'));
       return;
     }
 

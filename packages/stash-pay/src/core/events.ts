@@ -136,6 +136,7 @@ function buildEvent(
     case 'onPaymentFailure': {
       const ev: PaymentFailureEvent = {
         type: 'failure',
+        orderId: readString('orderId'),
         errorCode: readString('errorCode'),
         message: readString('message'),
         raw,
