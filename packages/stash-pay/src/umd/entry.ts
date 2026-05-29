@@ -5,7 +5,6 @@
  * After loading, the global looks like:
  *   window.StashPay.open({...})
  *   window.StashPay.Controller
- *   window.StashPay.StashPayError
  *   window.StashPay.injectStyles()
  *   window.StashPay.version
  *
@@ -14,8 +13,11 @@
  * A `default` export would land under `window.StashPay.default`.
  */
 
-import { StashPayController, open as controllerOpen } from '../core/controller';
-import { StashPayError as StashPayErrorClass } from '../core/errors';
+import {
+  StashPayController,
+  open as controllerOpen,
+  StashPayError,
+} from '../core/controller';
 import { injectStyles as injectStylesFn } from '../core/styles-inject';
 
 // Auto-inject styles on load. Replaced inline at build time via tsup `define`.
@@ -25,7 +27,6 @@ if (typeof document !== 'undefined') injectStylesFn();
 declare const __STASH_PAY_VERSION__: string;
 
 export const open = controllerOpen;
-export { StashPayController as Controller };
-export { StashPayErrorClass as StashPayError };
+export { StashPayController as Controller, StashPayError };
 export const injectStyles = injectStylesFn;
 export const version: string = __STASH_PAY_VERSION__;

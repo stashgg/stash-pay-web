@@ -107,3 +107,65 @@ Peer range unchanged: `react ^18.0.0 || ^19.0.0`.
 - **New optional props:** `allowedCheckoutHosts` (host allowlist, `*.domain` wildcards) and `loadTimeout` (opt-in load-failure timeout in ms).
 - **`PaymentFailureEvent` gained an optional `orderId`.**
 - **New exports:** `StashPayError` (class) and `StashPayErrorCode` (type) from the package root.
+
+---
+
+## Already on 2.1.x? Upgrading to 2.2.x
+
+**2.2.x tightens pre-flight error handling for imperative `open()` callers.** React
+`<StashPay>` users only need an `onError` handler if they do not already have one.
+
+### What changed
+
+In **2.1.0**, an invalid `checkoutUrl` fired `onError` but **`open()` still returned
+a handle** (a controller with nothing mounted). Mount failures could throw a plain
+`Error` without a stable `code`.
+
+In **2.2.x**, pre-flight failures are consistent:
+
+| | 2.1.0 | 2.2.x |
+| --- | --- | --- |
+| Invalid URL | `onError`, handle returned | `onError` **and throw**, **no handle** |
+| Bad `container` / `portalTarget` | Often untyped throw | `onError` **and throw** `MOUNT_ERROR`, **no handle** |
+| React `<StashPay>` | `onError` | `onError` (unchanged — no throw to your tree) |
+
+### What you should do
+
+**Vanilla ESM, UMD, or `useStashPay().open()`** — wrap `open()` in `try/catch`:
+
+```diff
+- const handle = open({ checkoutUrl, onSuccess });
++ try {
++   const handle = open({
++     checkoutUrl,
++     onSuccess,
++     onError: (e) => { /* optional — same error is also thrown */ },
++   });
++ } catch (e) {
++   if (e.code === 'INVALID_URL') { /* … */ }
++ }
+```
+
+Branch on **`e.code`**, not `instanceof StashPayError`.
+
+**React `<StashPay>`** — add or keep `onError`; close the sheet when it fires:
+
+```tsx
+<StashPay
+  isOpen={open}
+  checkoutUrl={url}
+  onError={(e) => {
+    report(e);
+    setOpen(false);
+  }}
+/>
+```
+
+**Do not use `onFailure` for pre-flight errors** — that callback is for payment
+failures from the checkout page. Invalid URLs and mount errors use **`onError`**.
+
+### Unchanged from 2.1.x
+
+- `loadTimeout` remains **opt-in** for slow or unreachable hosts (e.g. a valid-looking
+  URL whose server never responds).
+- `update()` with a new invalid `checkoutUrl` still emits `onError` only (does not throw).

@@ -3,6 +3,10 @@
  * Stable contract — anything exported here is part of the semver API.
  */
 
+export type {
+  StashPayErrorCode,
+} from './errors';
+export { StashPayError } from './errors';
 import type { StashPayError } from './errors';
 
 export type StashPayPosition =
@@ -155,7 +159,6 @@ export interface StashPayOptions {
   // Motion (ms) — overrides `theme.animationDuration`.
   animationDuration?: number;
 
-  // Reliability
   /**
    * Allowlist of hostnames `checkoutUrl` may use. Entries may be exact hosts
    * (`'pay.stash.gg'`) or `'*.domain'` wildcards (matching the apex and any
@@ -163,6 +166,7 @@ export interface StashPayOptions {
    * whose host is not allowed fires `onError` with code `DOMAIN_NOT_ALLOWED`.
    */
   allowedCheckoutHosts?: string[];
+
   /**
    * Milliseconds to wait for the checkout iframe's first load before firing
    * `onError` with code `NETWORK_ERROR`. Omitted or `0` disables the timeout

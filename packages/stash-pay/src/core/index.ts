@@ -3,16 +3,20 @@
  * Does not import React.
  */
 
-export { StashPayController, open } from './controller';
+export {
+  StashPayController,
+  open,
+  StashPayError,
+  toStashPayError,
+} from './controller';
 export { injectStyles } from './styles-inject';
-export { StashPayError } from './errors';
-export type { StashPayErrorCode } from './errors';
 export type {
   PaymentFailureEvent,
   PaymentProcessingEvent,
   PaymentSuccessEvent,
   StashCheckoutTheme,
   StashPayBackdropOptions,
+  StashPayErrorCode,
   StashPayEventMap,
   StashPayHandle,
   StashPayIframeOptions,

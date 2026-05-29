@@ -35,17 +35,10 @@ export class StashPayError extends Error {
     this.name = 'StashPayError';
     this.code = code;
     if (details) this.details = details;
-    // Restore the prototype chain — defensive for bundlers that down-level the
-    // class, so `instanceof StashPayError` keeps working within a build.
     Object.setPrototypeOf(this, StashPayError.prototype);
   }
 }
 
-/**
- * Coerce an unknown thrown value into a `StashPayError`. An existing
- * `StashPayError` passes through unchanged; an `Error` is wrapped (the original
- * kept on `details.cause`); anything else is stringified.
- */
 export function toStashPayError(
   err: unknown,
   fallbackCode: StashPayErrorCode = 'UNKNOWN',
