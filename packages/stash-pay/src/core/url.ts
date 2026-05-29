@@ -1,31 +1,24 @@
-/**
- * Checkout URL validation.
- *
- * `checkoutUrl` is assigned directly to the iframe `src`; an invalid value
- * silently leaves the checkout stuck on its loading spinner. Validating up
- * front lets the SDK fail fast through `onError` instead.
- */
-
 import { StashPayError } from './errors';
 
-export type ValidatedUrl =
-  | { ok: true; url: URL }
-  | { ok: false; error: StashPayError };
+type ValidateOk = { ok: true; url: URL };
+type ValidateFail = { ok: false; error: StashPayError };
+export type ValidateCheckoutUrlResult = ValidateOk | ValidateFail;
 
-/**
- * Validate a checkout URL. It must be an **absolute** `http:`/`https:` URL,
- * and — when `allowedHosts` is a non-empty list — its host must match an
- * entry.
- *
- * @param raw           The `checkoutUrl` option, as supplied by the host.
- * @param allowedHosts  Optional host allowlist. Entries may be exact hosts
- *                      (`'pay.stash.gg'`) or `'*.domain'` wildcards (apex and
- *                      any subdomain). Undefined or empty = no constraint.
- */
+function hostMatches(host: string, pattern: string): boolean {
+  const p = pattern.trim().toLowerCase();
+  if (p === '') return false;
+  if (p.startsWith('*.')) {
+    const bare = p.slice(2);
+    if (bare === '') return false;
+    return host === bare || host.endsWith('.' + bare);
+  }
+  return host === p;
+}
+
 export function validateCheckoutUrl(
-  raw: string,
+  raw: string | undefined,
   allowedHosts?: string[],
-): ValidatedUrl {
+): ValidateCheckoutUrlResult {
   const trimmed = (raw ?? '').trim();
   if (trimmed === '') {
     return {
@@ -34,10 +27,6 @@ export function validateCheckoutUrl(
     };
   }
 
-  // A checkout URL is always absolute — it points at the Stash checkout host.
-  // Parsing without a base URL rejects bare/relative strings (`'not-a-url'`,
-  // `'pay.stash.gg/checkout'`) that would otherwise resolve against the host
-  // page and silently 404 inside the iframe.
   let url: URL;
   try {
     url = new URL(trimmed);
@@ -80,17 +69,31 @@ export function validateCheckoutUrl(
   return { ok: true, url };
 }
 
-/**
- * Match a (lowercased) host against one allowlist entry. A `'*.domain'` entry
- * matches the apex and any subdomain; any other entry is an exact match.
- */
-function hostMatches(host: string, pattern: string): boolean {
-  const p = pattern.trim().toLowerCase();
-  if (p === '') return false;
-  if (p.startsWith('*.')) {
-    const bare = p.slice(2);
-    if (bare === '') return false;
-    return host === bare || host.endsWith('.' + bare);
+export function resolveCheckoutUrl(
+  checkoutUrl: string,
+  checkoutTheme: 'light' | 'dark' | undefined,
+  allowedCheckoutHosts: string[] | undefined,
+): ValidateCheckoutUrlResult {
+  const result = validateCheckoutUrl(checkoutUrl, allowedCheckoutHosts);
+  if (!result.ok) return result;
+  if (checkoutTheme) {
+    result.url.searchParams.set('theme', checkoutTheme);
   }
-  return host === p;
+  return result;
+}
+
+export function resolveMountContainer(
+  raw: HTMLElement | undefined,
+): HTMLElement {
+  if (raw === undefined) {
+    return document.body;
+  }
+  if (!(raw instanceof HTMLElement)) {
+    throw new StashPayError(
+      'MOUNT_ERROR',
+      'container must be an HTMLElement.',
+      { container: raw },
+    );
+  }
+  return raw;
 }

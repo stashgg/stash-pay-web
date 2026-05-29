@@ -2,13 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { StashPayController } from '../core/controller';
-import { toStashPayError, type StashPayError } from '../core/errors';
+import { StashPayError, toStashPayError } from '../core/errors';
 import type {
   PaymentFailureEvent,
   PaymentProcessingEvent,
   PaymentSuccessEvent,
   StashCheckoutTheme,
   StashPayBackdropOptions,
+  StashPayError as StashPayErrorType,
   StashPayIframeOptions,
   StashPayOptions,
   StashPayPosition,
@@ -56,17 +57,17 @@ export interface StashPayProps {
   // Motion
   animationDuration?: number;
 
-  // Reliability
-  /** Host allowlist for `checkoutUrl`; exact hosts or `*.domain` wildcards. */
+  /** Host allowlist forwarded to the controller. */
   allowedCheckoutHosts?: string[];
-  /** Ms to wait for the iframe's first load before `onError(NETWORK_ERROR)`. Omitted/0 = off. */
+
+  /** Opt-in iframe load timeout (ms). */
   loadTimeout?: number;
 
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
   onReady?: () => void;
-  onError?: (e: StashPayError) => void;
+  onError?: (e: StashPayErrorType) => void;
   onSuccess?: (e: PaymentSuccessEvent) => void;
   onFailure?: (e: PaymentFailureEvent) => void;
   onProcessing?: (e: PaymentProcessingEvent) => void;
@@ -171,7 +172,10 @@ export function StashPay(props: StashPayProps): null {
       controller.mount();
     } catch (err) {
       controllerRef.current = null;
-      propsRef.current.onError?.(toStashPayError(err, 'MOUNT_ERROR'));
+      // mount() emits onError before throwing StashPayError — avoid double-callback.
+      if (!(err instanceof StashPayError)) {
+        propsRef.current.onError?.(toStashPayError(err, 'MOUNT_ERROR'));
+      }
       return;
     }
 

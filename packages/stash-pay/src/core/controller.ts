@@ -19,11 +19,10 @@ import {
   type BuiltTree,
 } from './dom';
 import { Emitter } from './emitter';
-import { StashPayError } from './errors';
+import { StashPayError, toStashPayError } from './errors';
 import { parseMessage } from './events';
 import { createFocusTrap, type FocusTrap } from './focus-trap';
 import { applyTheme, readAnimationDurationMs } from './theme';
-import { validateCheckoutUrl, type ValidatedUrl } from './url';
 import type {
   StashPayEventMap,
   StashPayHandle,
@@ -31,6 +30,10 @@ import type {
   StashPayState,
   StashPaymentEvent,
 } from './types';
+import {
+  resolveCheckoutUrl,
+  resolveMountContainer,
+} from './url';
 
 function requireDocument(): void {
   if (typeof document === 'undefined') {
@@ -38,23 +41,6 @@ function requireDocument(): void {
       '[stash-pay] requires a browser environment (document is not defined).',
     );
   }
-}
-
-/**
- * Validate `checkoutUrl` and, on success, return the resolved iframe `src`
- * URL with `checkoutTheme` applied as a `theme` query parameter. An invalid
- * URL yields a typed `StashPayError` instead of a value that hangs the iframe.
- */
-function resolveCheckoutUrl(options: StashPayOptions): ValidatedUrl {
-  const result = validateCheckoutUrl(
-    options.checkoutUrl,
-    options.allowedCheckoutHosts,
-  );
-  if (!result.ok) return result;
-  if (options.checkoutTheme) {
-    result.url.searchParams.set('theme', options.checkoutTheme);
-  }
-  return result;
 }
 
 export class StashPayController {
@@ -106,23 +92,30 @@ export class StashPayController {
       );
     }
     requireDocument();
-
-    // Wire the option callbacks first so a checkout-URL validation failure can
-    // reach `onError` (and any pre-mount `.on('error')` handler).
     this.wireCallbacks();
 
-    // Validate the checkout URL up front. An invalid URL emits `error` and
-    // mounts nothing — no DOM, no spinner, no open.
-    const resolved = resolveCheckoutUrl(this.options);
+    const resolved = resolveCheckoutUrl(
+      this.options.checkoutUrl,
+      this.options.checkoutTheme,
+      this.options.allowedCheckoutHosts,
+    );
     if (!resolved.ok) {
-      this.emitter.emit('error', resolved.error);
-      return;
+      this.failMount(resolved.error);
     }
 
-    const container = this.options.container ?? document.body;
+    let container: HTMLElement;
+    try {
+      container = resolveMountContainer(this.options.container);
+    } catch (err) {
+      this.failMount(toStashPayError(err, 'MOUNT_ERROR'));
+    }
+
     if (container.dataset[DATA_ATTR.active]) {
-      throw new Error(
-        '[stash-pay] a Stash Pay instance is already mounted in this container. Destroy the previous handle first.',
+      this.failMount(
+        new StashPayError(
+          'MOUNT_ERROR',
+          '[stash-pay] a Stash Pay instance is already mounted in this container. Destroy the previous handle first.',
+        ),
       );
     }
 
@@ -149,7 +142,7 @@ export class StashPayController {
       delete container.dataset[DATA_ATTR.active];
       this.container = null;
       this.tree = null;
-      throw err;
+      this.failMount(toStashPayError(err, 'MOUNT_ERROR'));
     }
   }
 
@@ -173,9 +166,7 @@ export class StashPayController {
     if (!this.tree) return;
     if (this._state !== 'open') return;
 
-    // Closing mid-load cancels any pending load-timeout NETWORK_ERROR.
     this.clearLoadTimeout();
-
     this._state = 'closing';
     this.setStateAttr('closing');
     this.focusTrap?.deactivate();
@@ -202,16 +193,17 @@ export class StashPayController {
     if ('theme' in partial) applyTheme(this.tree.root, this.options.theme);
     applyOptionsToDom(this.tree, this.options);
 
-    // Re-validate and reload the iframe only when a URL-affecting option
-    // actually changed.
     if (
       'checkoutUrl' in partial ||
       'checkoutTheme' in partial ||
       'allowedCheckoutHosts' in partial
     ) {
-      const resolved = resolveCheckoutUrl(this.options);
+      const resolved = resolveCheckoutUrl(
+        this.options.checkoutUrl,
+        this.options.checkoutTheme,
+        this.options.allowedCheckoutHosts,
+      );
       if (!resolved.ok) {
-        // Invalid new URL: surface the error, keep the current iframe content.
         this.emitter.emit('error', resolved.error);
       } else {
         const nextSrc = resolved.url.toString();
@@ -219,7 +211,6 @@ export class StashPayController {
       }
     }
 
-    // Re-wire callbacks in case any on* handler changed.
     this.wireCallbacks();
   }
 
@@ -263,7 +254,13 @@ export class StashPayController {
     }
   }
 
-  /** Static shorthand — `StashPayController.open(options)` returns a handle. */
+  /**
+   * Static shorthand — `StashPayController.open(options)` returns a handle when
+   * mount succeeds.
+   *
+   * @throws {StashPayError} Pre-flight failures (invalid URL, bad container, …).
+   *   `onError` is invoked with the same error before the throw; no handle is returned.
+   */
   static open(options: StashPayOptions): StashPayHandle {
     const controller = new StashPayController(options);
     controller.mount();
@@ -271,6 +268,16 @@ export class StashPayController {
   }
 
   // ---- internals ----
+
+  /**
+   * Pre-flight mount failure: notify via `onError` / `error` event, then throw
+   * so `open()` does not return a handle and callers can `try/catch` the same
+   * typed error.
+   */
+  private failMount(error: StashPayError): never {
+    this.emitter.emit('error', error);
+    throw error;
+  }
 
   private openInternal(): void {
     if (this._state === 'destroyed') return;
@@ -312,11 +319,9 @@ export class StashPayController {
     this.loadTimeoutTimer = setTimeout(() => {
       this.loadTimeoutTimer = null;
       if (this._state === 'destroyed' || !this.tree) return;
-      if (this._currentSrc !== srcAtArm) return; // a newer load superseded us
+      if (this._currentSrc !== srcAtArm) return;
       if (this._loadSettled) return;
       this._loadSettled = true;
-      // Stop the spinner; do not close the modal or clear `src` — a late but
-      // successful load can still self-heal via `iframeLoadHandler`.
       this.tree.root.setAttribute(DATA_ATTR.loading, 'false');
       this.emitter.emit(
         'error',
@@ -367,15 +372,12 @@ export class StashPayController {
 
     this.iframeLoadHandler = () => {
       if (!this._currentSrc) return;
-      // A successful load wins the load-outcome race and cancels the timeout.
       this._loadSettled = true;
       this.clearLoadTimeout();
       const wasFirst = !this._hasLoadedOnce;
       this._hasLoadedOnce = true;
       root.setAttribute(DATA_ATTR.loading, 'false');
 
-      // Re-install the in-iframe bridge on every load so internal
-      // navigations (3DS hops, etc.) are covered. No-op cross-origin.
       installBridge(iframe, {
         onSuccess: (e) => this.dispatchPaymentEvent(e),
         onFailure: (e) => this.dispatchPaymentEvent(e),
@@ -387,9 +389,6 @@ export class StashPayController {
     };
     iframe.addEventListener('load', this.iframeLoadHandler);
 
-    // Best-effort hard-failure signal. The iframe `error` event is unreliable
-    // (it does not fire for HTTP 4xx/5xx and is inconsistent cross-origin) —
-    // `loadTimeout` is the dependable safety net.
     this.iframeErrorHandler = () => {
       if (!this.tree || this._loadSettled) return;
       this._loadSettled = true;
@@ -498,7 +497,13 @@ function makeHandle(controller: StashPayController): StashPayHandle {
   };
 }
 
-/** Functional shorthand — equivalent to `StashPayController.open(options)`. */
+/**
+ * Functional shorthand — equivalent to `StashPayController.open(options)`.
+ *
+ * @throws {StashPayError} Pre-flight failures — see {@link StashPayController.open}.
+ */
 export function open(options: StashPayOptions): StashPayHandle {
   return StashPayController.open(options);
 }
+
+export { StashPayError, toStashPayError };

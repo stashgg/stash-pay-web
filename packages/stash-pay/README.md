@@ -38,6 +38,11 @@ export function PayButton({ checkoutUrl }: { checkoutUrl: string | null }) {
         checkoutUrl={checkoutUrl}
         position="center-modal"
         onSuccess={(e) => console.log('paid', e.orderId)}
+        onFailure={(e) => console.log('payment failed', e.errorCode)}
+        onError={(e) => {
+          console.error('checkout error', e.code, e.message);
+          setOpen(false);
+        }}
         onClose={() => setOpen(false)}
       />
     </>
@@ -50,15 +55,22 @@ export function PayButton({ checkoutUrl }: { checkoutUrl: string | null }) {
 ```html
 <script src="https://unpkg.com/@stashgg/stash-pay@2/dist/umd/stash-pay.umd.global.js"></script>
 <script>
-  const handle = StashPay.open({
-    checkoutUrl: 'https://pay.stash.gg/checkout/abc...',
-    position: 'center-modal',
-    dismissOnBackdropClick: true,
-    onSuccess: (e) => console.log('paid', e.orderId),
-    onClose: () => console.log('closed'),
-  });
+  let handle;
+  try {
+    handle = StashPay.open({
+      checkoutUrl: 'https://pay.stash.gg/checkout/abc...',
+      position: 'center-modal',
+      dismissOnBackdropClick: true,
+      onSuccess: (e) => console.log('paid', e.orderId),
+      onError: (e) => console.error('checkout error', e.code, e.message),
+      onClose: () => console.log('closed'),
+    });
+  } catch (e) {
+    // Pre-flight failure (invalid URL, bad container, …) — same StashPayError as onError.
+    console.error('could not open checkout', e.code, e.message);
+  }
 
-  // later:
+  // later (only if open() succeeded):
   // handle.update({ position: 'bottom-sheet' });
   // handle.close();
   // handle.destroy();
@@ -70,14 +82,22 @@ Styles are auto-injected once on load in the UMD bundle. No separate CSS import 
 ## Quick start — vanilla ESM (no React)
 
 ```ts
-import { open } from '@stashgg/stash-pay/vanilla';
+import { open, StashPayError } from '@stashgg/stash-pay/vanilla';
 import '@stashgg/stash-pay/styles';
 
-const handle = open({
-  checkoutUrl,
-  position: 'side-panel-right',
-  onSuccess: (e) => console.log(e.orderId),
-});
+try {
+  const handle = open({
+    checkoutUrl,
+    position: 'side-panel-right',
+    onSuccess: (e) => console.log(e.orderId),
+    onError: (e) => console.error(e.code, e.message),
+  });
+  // use handle.close(), handle.destroy(), …
+} catch (e) {
+  if (e instanceof StashPayError && e.code === 'INVALID_URL') {
+    // bad checkoutUrl from backend
+  }
+}
 ```
 
 ## Props / options reference
@@ -91,7 +111,7 @@ const handle = open({
 | `width` | `string \| number` | — | Overrides the preset width. |
 | `height` | `string \| number` | — | Overrides the preset height. |
 | `zIndex` | `number` | `2147483000` | Sets `--stash-pay-z-index`. |
-| `portalTarget` / `container` | `HTMLElement` | `document.body` | Where the modal mounts. |
+| `portalTarget` / `container` | `HTMLElement` | `document.body` | Where the modal mounts. Must be an `HTMLElement`; invalid values emit `onError` with `MOUNT_ERROR`. |
 | `showCloseButton` | `boolean` | `true` | |
 | `showDragBar` | `boolean` | `true` on bottom-sheet, else `false` | |
 | `dismissOnBackdropClick` | `boolean` | `true` | |
@@ -103,7 +123,7 @@ const handle = open({
 | `animationDuration` | `number` (ms) | `300` | Overrides the easing duration. |
 | `ariaLabel` | `string` | `'Stash Pay checkout'` | |
 | `iframe` | `StashPayIframeOptions` | — | See below. |
-| `allowedCheckoutHosts` | `string[]` | — | Optional host allowlist for `checkoutUrl`. Entries are exact hosts (`pay.stash.gg`) or `*.domain` wildcards (apex + any subdomain). If set and the URL's host is not allowed, `onError` fires with `DOMAIN_NOT_ALLOWED` and the modal does not open. Distinct from `iframe.allowedOrigins`, which validates `postMessage` origins. |
+| `allowedCheckoutHosts` | `string[]` | — | Optional host allowlist for `checkoutUrl`. Entries are exact hosts (`pay.stash.gg`) or `*.domain` wildcards (apex + any subdomain). If set and the URL's host is not allowed, pre-flight validation fails with `DOMAIN_NOT_ALLOWED`. Distinct from `iframe.allowedOrigins`, which validates `postMessage` origins. |
 | `loadTimeout` | `number` (ms) | — | If the checkout iframe does not load within this many ms, `onError` fires with `NETWORK_ERROR`. Omitted or `0` disables the timeout (opt-in). |
 | `injectStyles` | `boolean` | UMD: `true`, else `false` | Runtime `<style>` injection toggle. |
 | `cspNonce` | `string` | — | Applied to the injected `<style>` when runtime injection is enabled. |
@@ -137,6 +157,7 @@ Every callback receives a structured event plus a `raw` escape hatch containing 
 
 ### Callback delivery guarantees
 
+- **`onError` vs `onFailure`:** `onError` is for SDK / integration failures (invalid URL, mount error, network timeout). `onFailure` is for **payment** failures reported by the checkout page after it loads. Do not use `onFailure` for pre-flight validation errors.
 - `onSuccess` and `onFailure` are **terminal** — each fires **at most once per checkout session**. The checkout can deliver payment events over two channels (the `window.stash_sdk` bridge and `postMessage`); duplicate or late terminal events are dropped.
 - `onProcessing` is **not** terminal and may fire multiple times before a terminal event.
 - `onOpen`, `onReady`, and `onClose` each fire once per open/close cycle.
@@ -179,9 +200,48 @@ type StashPayErrorCode =
 
 The SDK validates `checkoutUrl` before it touches the iframe. An invalid URL (empty,
 unparseable, a non-`http(s)` scheme such as `javascript:`/`data:`, or a host outside
-`allowedCheckoutHosts`) fires `onError` and the modal **does not open** — it no longer
-hangs on an endless loading spinner. For a syntactically valid URL whose server never
-responds, set `loadTimeout` to surface a `NETWORK_ERROR` after a bounded wait.
+`allowedCheckoutHosts`) is a **pre-flight failure**: the modal does not open and the
+checkout iframe is never created.
+
+For a syntactically valid URL whose server never responds, set `loadTimeout` to
+surface a `NETWORK_ERROR` after a bounded wait. Without `loadTimeout`, the loading
+spinner can run indefinitely — the SDK cannot tell a slow checkout from a dead host.
+
+### Pre-flight failures (`open()` / `mount()`)
+
+These failures happen **before** the checkout iframe loads:
+
+- Invalid or disallowed `checkoutUrl` → `INVALID_URL` or `DOMAIN_NOT_ALLOWED`
+- Invalid `container` / `portalTarget` (not an `HTMLElement`) → `MOUNT_ERROR`
+- A Stash Pay instance already mounted in the same container → `MOUNT_ERROR`
+- Other DOM mount errors → `MOUNT_ERROR`
+
+**Vanilla / UMD (`open()`, `StashPayController.open()`):**
+
+1. `onError` fires with a `StashPayError`
+2. The same error is **thrown**
+3. **No handle is returned** — do not call `handle.close()` unless `open()` completed without throwing
+
+Use `try/catch` around `open()`, or rely on `onError` only — but never assume a handle
+exists after a pre-flight failure:
+
+```ts
+try {
+  const handle = open({
+    checkoutUrl,
+    onError: (e) => report(e), // optional — same error is also thrown
+  });
+} catch (e) {
+  if (e.code === 'INVALID_URL') { /* … */ }
+}
+```
+
+**React (`<StashPay>`):** mount failures are caught internally. Use `onError`; the
+component does not throw into your render tree. Close the sheet in the handler
+(`setOpen(false)`).
+
+**`update()` after mount:** changing to an invalid `checkoutUrl` emits `onError` but
+does **not** throw — the existing checkout session stays on screen.
 
 ## Theming
 
@@ -248,12 +308,17 @@ function PayButton() {
   const { open } = useStashPay();
   return (
     <button
-      onClick={() =>
-        open({
-          checkoutUrl: '...',
-          onSuccess: (e) => alert(`paid ${e.orderId}`),
-        })
-      }
+      onClick={() => {
+        try {
+          open({
+            checkoutUrl: '...',
+            onSuccess: (e) => alert(`paid ${e.orderId}`),
+            onError: (e) => alert(`error: ${e.code}`),
+          });
+        } catch (e) {
+          alert(`could not open: ${e.code}`);
+        }
+      }}
     >
       Pay
     </button>
@@ -261,7 +326,9 @@ function PayButton() {
 }
 ```
 
-The handle returned by `open` exposes `close`, `update`, `destroy`, and typed `on` / `off`.
+On success, `open()` returns a handle with `close`, `update`, `destroy`, and typed
+`on` / `off`. Pre-flight failures throw and return no handle — see
+[Pre-flight failures](#pre-flight-failures-open--mount).
 
 ## Accessibility
 
@@ -328,6 +395,7 @@ See [MIGRATION.md](./MIGRATION.md). Highlights:
 - `onPurchaseFailed` → `onFailure` (typed).
 - Callbacks now fire **before** the auto-close animation starts.
 - Width prop unchanged; new `height`, `position`, `backdrop`, `theme`, `iframe`, dismiss and auto-close flags are all additive.
+- **2.2.x:** pre-flight failures from `open()` throw `StashPayError` and return no handle — see [Upgrading to 2.2.x](./MIGRATION.md#already-on-21x-upgrading-to-22x) in MIGRATION.md.
 
 ## Browser support
 
