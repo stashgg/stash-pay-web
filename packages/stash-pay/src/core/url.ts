@@ -72,12 +72,17 @@ export function validateCheckoutUrl(
 export function resolveCheckoutUrl(
   checkoutUrl: string,
   checkoutTheme: 'light' | 'dark' | undefined,
+  checkoutLocale: string | undefined,
   allowedCheckoutHosts: string[] | undefined,
 ): ValidateCheckoutUrlResult {
   const result = validateCheckoutUrl(checkoutUrl, allowedCheckoutHosts);
   if (!result.ok) return result;
   if (checkoutTheme) {
     result.url.searchParams.set('theme', checkoutTheme);
+  }
+  const locale = checkoutLocale?.trim();
+  if (locale) {
+    result.url.searchParams.set('locale', locale);
   }
   return result;
 }

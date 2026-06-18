@@ -97,6 +97,7 @@ export class StashPayController {
     const resolved = resolveCheckoutUrl(
       this.options.checkoutUrl,
       this.options.checkoutTheme,
+      this.options.checkoutLocale,
       this.options.allowedCheckoutHosts,
     );
     if (!resolved.ok) {
@@ -196,11 +197,13 @@ export class StashPayController {
     if (
       'checkoutUrl' in partial ||
       'checkoutTheme' in partial ||
+      'checkoutLocale' in partial ||
       'allowedCheckoutHosts' in partial
     ) {
       const resolved = resolveCheckoutUrl(
         this.options.checkoutUrl,
         this.options.checkoutTheme,
+        this.options.checkoutLocale,
         this.options.allowedCheckoutHosts,
       );
       if (!resolved.ok) {

@@ -123,6 +123,13 @@ export interface StashPayOptions {
    * Leave undefined to let the checkout pick its own default.
    */
   checkoutTheme?: StashCheckoutTheme;
+  /**
+   * UI language forwarded to the checkout page as `?locale=` (BCP-47 or bare
+   * language code, e.g. `fr-FR` or `fr`). Independent of Server SDK `regionCode`,
+   * which controls pricing and tax. Leave undefined to let checkout resolve
+   * language from the browser's Accept-Language header.
+   */
+  checkoutLocale?: string;
 
   // Layout
   position?: StashPayPosition;

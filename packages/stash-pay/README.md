@@ -36,6 +36,7 @@ export function PayButton({ checkoutUrl }: { checkoutUrl: string | null }) {
       <StashPay
         isOpen={open}
         checkoutUrl={checkoutUrl}
+        checkoutLocale="fr-FR"
         position="center-modal"
         onSuccess={(e) => console.log('paid', e.orderId)}
         onFailure={(e) => console.log('payment failed', e.errorCode)}
@@ -107,6 +108,7 @@ try {
 | `checkoutUrl` | `string` | — | **Required.** URL returned by Stash Pay server API. |
 | `isOpen` *(React only)* | `boolean` | — | **Required.** Controls visibility. |
 | `checkoutTheme` | `'light' \| 'dark'` | — | Forwards a `theme=` query parameter to the checkout page so the checkout UI renders in the matching colour scheme. Distinct from `theme` (which styles the surrounding card). |
+| `checkoutLocale` | `string` | — | Forwards a `locale=` query parameter to the checkout page so Stash Pay v2 renders in the requested language (BCP-47 or bare code, e.g. `fr-FR` or `fr`). Independent of Server SDK `regionCode`, which controls pricing and tax. Omit to let checkout resolve language from the browser. Gated per shop by backend `supported_languages`. |
 | `position` | `'bottom-sheet' \| 'center-modal' \| 'side-panel-right' \| 'side-panel-left'` | `'bottom-sheet'` | Layout preset. |
 | `width` | `string \| number` | — | Overrides the preset width. |
 | `height` | `string \| number` | — | Overrides the preset height. |
