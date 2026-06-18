@@ -23,6 +23,8 @@ export interface StashPayProps {
   checkoutUrl: string | null;
   /** Colour scheme forwarded to the checkout page via `?theme=`. */
   checkoutTheme?: StashCheckoutTheme;
+  /** UI language forwarded to the checkout page via `?locale=`. */
+  checkoutLocale?: string;
 
   // Layout
   position?: StashPayPosition;
@@ -81,6 +83,7 @@ export interface StashPayProps {
 const DOM_OPTION_KEYS: (keyof StashPayProps)[] = [
   'checkoutUrl',
   'checkoutTheme',
+  'checkoutLocale',
   'position',
   'width',
   'height',
@@ -107,6 +110,7 @@ function buildOptions(
   return {
     checkoutUrl: p.checkoutUrl ?? '',
     checkoutTheme: p.checkoutTheme,
+    checkoutLocale: p.checkoutLocale,
     position: p.position,
     width: p.width,
     height: p.height,

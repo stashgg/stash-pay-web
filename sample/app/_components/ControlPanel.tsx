@@ -36,6 +36,17 @@ const CHECKOUT_THEMES: {
   { value: 'dark', label: 'Dark' },
 ];
 
+const CHECKOUT_LOCALE_PRESETS: {
+  value: string | undefined;
+  label: string;
+}[] = [
+  { value: undefined, label: 'Auto' },
+  { value: 'en-US', label: 'en-US' },
+  { value: 'fr-FR', label: 'fr-FR' },
+  { value: 'de-DE', label: 'de-DE' },
+  { value: 'ja-JP', label: 'ja-JP' },
+];
+
 function Section({
   title,
   children,
@@ -172,6 +183,35 @@ export function ControlPanel({
               </button>
             ))}
           </div>
+        </div>
+        <div className="pt-0.5">
+          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-stash-text-soft">
+            Checkout locale
+          </div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {CHECKOUT_LOCALE_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => update({ checkoutLocale: preset.value })}
+                className={`h-9 rounded-full border text-[12px] font-medium transition ${
+                  config.checkoutLocale === preset.value
+                    ? 'border-stash-text bg-stash-text text-white'
+                    : 'border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <input
+            className={input + ' mt-2'}
+            placeholder="Custom locale (e.g. es-MX)"
+            value={config.checkoutLocale ?? ''}
+            onChange={(e) =>
+              update({ checkoutLocale: e.target.value.trim() || undefined })
+            }
+          />
         </div>
         <div className="flex items-center justify-between gap-3">
           <button

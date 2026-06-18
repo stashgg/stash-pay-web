@@ -16,6 +16,7 @@ type CallbackProps =
 
 export const DEFAULT_CONFIG: PlaygroundConfig = {
   checkoutTheme: undefined,
+  checkoutLocale: undefined,
   position: 'bottom-sheet',
   width: undefined,
   height: undefined,

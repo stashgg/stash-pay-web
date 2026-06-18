@@ -51,6 +51,7 @@ function jsxProp(name: string, value: unknown): string {
 /** Order props roughly by "importance" for readability. */
 const PROP_ORDER: (keyof PlaygroundConfig)[] = [
   'checkoutTheme',
+  'checkoutLocale',
   'position',
   'width',
   'height',
