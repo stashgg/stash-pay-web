@@ -23,9 +23,11 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      # Ensure npm 11.5.1 or later is installed
+      # Ensure npm 11.5.1 or later is installed (needed for OIDC provenance).
+      # Pin to npm 11.x: npm@latest is now 12.x, which requires Node >=22 and
+      # fails the engine check on this Node 20 runner.
       - name: Update npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - name: Install dependencies
         run: npm ci
