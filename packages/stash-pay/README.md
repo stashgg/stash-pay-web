@@ -246,6 +246,33 @@ component does not throw into your render tree. Close the sheet in the handler
 **`update()` after mount:** changing to an invalid `checkoutUrl` emits `onError` but
 does **not** throw — the existing checkout session stays on screen.
 
+## Debugging
+
+Set `debug: true` to trace the SDK's lifecycle through `console.log`. Every line is
+prefixed with `[stash-pay]`, so it filters cleanly in the browser console. The option
+defaults to `false`; with it off the SDK logs nothing.
+
+```tsx
+<StashPay isOpen={open} checkoutUrl={url} debug />
+```
+
+```ts
+// vanilla / UMD
+open({ checkoutUrl, debug: true, onError: (e) => report(e) });
+```
+
+Traced events include:
+
+- **Mount / open / close / destroy** — state transitions and container info.
+- **Iframe** — the `src` being loaded, first vs. subsequent `load`, bridge install, and the `error` / `loadTimeout` (`NETWORK_ERROR`) paths.
+- **postMessage** — whether each inbound message was parsed or ignored (with its origin).
+- **Payment dispatch** — the event type, including when a terminal `success`/`failure` is dropped because the session already settled.
+- **Callbacks** — each user callback as it fires.
+
+Keep `debug` off in production. Traces are for troubleshooting only, and the iframe
+`src` line includes the `checkoutUrl` — safe to log locally, but avoid shipping it to
+end-user consoles.
+
 ## Theming
 
 Every visual token is a CSS custom property defined on the root. Override globally:
