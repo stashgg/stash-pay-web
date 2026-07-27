@@ -10,6 +10,7 @@ export {
   toStashPayError,
 } from './controller';
 export { injectStyles } from './styles-inject';
+export { preconnect } from './preconnect';
 export type {
   PaymentFailureEvent,
   PaymentProcessingEvent,

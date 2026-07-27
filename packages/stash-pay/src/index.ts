@@ -6,6 +6,7 @@
 
 export { StashPay, useStashPay } from './react';
 export type { StashPayProps } from './react';
+export { preconnect } from './core/preconnect';
 export { StashPayError } from './core/errors';
 export type {
   PaymentFailureEvent,

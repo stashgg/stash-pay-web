@@ -23,6 +23,7 @@ import { Emitter } from "./emitter";
 import { StashPayError, toStashPayError } from "./errors";
 import { parseMessage } from "./events";
 import { createFocusTrap, type FocusTrap } from "./focus-trap";
+import { preconnectOrigin } from "./preconnect";
 import { applyTheme, readAnimationDurationMs } from "./theme";
 import type {
   StashPayEventMap,
@@ -102,6 +103,10 @@ export class StashPayController {
     if (!resolved.ok) {
       this.failMount(resolved.error);
     }
+
+    // Warm DNS/TCP/TLS to the checkout origin now, so the handshake overlaps
+    // tree building instead of blocking the iframe's first navigation.
+    preconnectOrigin(resolved.url.origin);
 
     let container: HTMLElement;
     try {

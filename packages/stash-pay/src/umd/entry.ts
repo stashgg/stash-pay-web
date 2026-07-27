@@ -6,6 +6,7 @@
  *   window.StashPay.open({...})
  *   window.StashPay.Controller
  *   window.StashPay.injectStyles()
+ *   window.StashPay.preconnect('https://checkout...')
  *   window.StashPay.version
  *
  * Implementation note: only named exports are used here so tsup/esbuild's IIFE
@@ -19,6 +20,7 @@ import {
   StashPayError,
 } from '../core/controller';
 import { injectStyles as injectStylesFn } from '../core/styles-inject';
+import { preconnect as preconnectFn } from '../core/preconnect';
 
 // Auto-inject styles on load. Replaced inline at build time via tsup `define`.
 if (typeof document !== 'undefined') injectStylesFn();
@@ -29,4 +31,5 @@ declare const __STASH_PAY_VERSION__: string;
 export const open = controllerOpen;
 export { StashPayController as Controller, StashPayError };
 export const injectStyles = injectStylesFn;
+export const preconnect = preconnectFn;
 export const version: string = __STASH_PAY_VERSION__;
