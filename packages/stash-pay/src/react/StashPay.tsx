@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import { StashPayController } from '../core/controller';
-import { StashPayError, toStashPayError } from '../core/errors';
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { StashPayController } from "../core/controller";
+import { StashPayError, toStashPayError } from "../core/errors";
 import type {
   PaymentFailureEvent,
   PaymentProcessingEvent,
@@ -14,7 +14,7 @@ import type {
   StashPayOptions,
   StashPayPosition,
   StashPayTheme,
-} from '../core/types';
+} from "../core/types";
 
 export interface StashPayProps {
   /** Declarative open state. */
@@ -65,6 +65,12 @@ export interface StashPayProps {
   /** Opt-in iframe load timeout (ms). */
   loadTimeout?: number;
 
+  /**
+   * When `true`, the SDK prints lifecycle and callback traces via `console.debug`.
+   * Default: `false`.
+   */
+  debug?: boolean;
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
@@ -81,26 +87,27 @@ export interface StashPayProps {
  * live behind a ref so parent re-renders do not thrash the DOM.
  */
 const DOM_OPTION_KEYS: (keyof StashPayProps)[] = [
-  'checkoutUrl',
-  'checkoutTheme',
-  'checkoutLocale',
-  'position',
-  'width',
-  'height',
-  'zIndex',
-  'showCloseButton',
-  'showDragBar',
-  'dismissOnBackdropClick',
-  'dismissOnEscape',
-  'autoCloseOnSuccess',
-  'autoCloseOnFailure',
-  'backdrop',
-  'theme',
-  'ariaLabel',
-  'iframe',
-  'animationDuration',
-  'allowedCheckoutHosts',
-  'loadTimeout',
+  "checkoutUrl",
+  "checkoutTheme",
+  "checkoutLocale",
+  "position",
+  "width",
+  "height",
+  "zIndex",
+  "showCloseButton",
+  "showDragBar",
+  "dismissOnBackdropClick",
+  "dismissOnEscape",
+  "autoCloseOnSuccess",
+  "autoCloseOnFailure",
+  "backdrop",
+  "theme",
+  "ariaLabel",
+  "iframe",
+  "animationDuration",
+  "allowedCheckoutHosts",
+  "loadTimeout",
+  "debug",
 ];
 
 function buildOptions(
@@ -108,7 +115,7 @@ function buildOptions(
 ): StashPayOptions {
   const p = propsRef.current;
   return {
-    checkoutUrl: p.checkoutUrl ?? '',
+    checkoutUrl: p.checkoutUrl ?? "",
     checkoutTheme: p.checkoutTheme,
     checkoutLocale: p.checkoutLocale,
     position: p.position,
@@ -131,6 +138,7 @@ function buildOptions(
     animationDuration: p.animationDuration,
     allowedCheckoutHosts: p.allowedCheckoutHosts,
     loadTimeout: p.loadTimeout,
+    debug: p.debug,
     // Callback proxies — stable identity, always the latest closure.
     onOpen: () => propsRef.current.onOpen?.(),
     onClose: () => propsRef.current.onClose?.(),
@@ -178,7 +186,7 @@ export function StashPay(props: StashPayProps): null {
       controllerRef.current = null;
       // mount() emits onError before throwing StashPayError — avoid double-callback.
       if (!(err instanceof StashPayError)) {
-        propsRef.current.onError?.(toStashPayError(err, 'MOUNT_ERROR'));
+        propsRef.current.onError?.(toStashPayError(err, "MOUNT_ERROR"));
       }
       return;
     }
@@ -194,8 +202,8 @@ export function StashPay(props: StashPayProps): null {
     const controller = controllerRef.current;
     if (!controller) return;
     if (props.isOpen) {
-      if (controller.state === 'closed') controller.open();
-    } else if (controller.state === 'open') {
+      if (controller.state === "closed") controller.open();
+    } else if (controller.state === "open") {
       controller.close();
     }
   }, [props.isOpen]);
