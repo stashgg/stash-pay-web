@@ -10,35 +10,33 @@
  *   - Translate iframe messages into typed events and fire user callbacks.
  */
 
-import { installBridge } from './bridge';
-import { DATA_ATTR, DEFAULT_ANIMATION_DURATION_MS } from './constants';
+import { installBridge } from "./bridge";
+import { DATA_ATTR, DEFAULT_ANIMATION_DURATION_MS } from "./constants";
+import { debugLog } from "./debug";
 import {
   applyOptionsToDom,
   buildTree,
   collectFocusables,
   type BuiltTree,
-} from './dom';
-import { Emitter } from './emitter';
-import { StashPayError, toStashPayError } from './errors';
-import { parseMessage } from './events';
-import { createFocusTrap, type FocusTrap } from './focus-trap';
-import { applyTheme, readAnimationDurationMs } from './theme';
+} from "./dom";
+import { Emitter } from "./emitter";
+import { StashPayError, toStashPayError } from "./errors";
+import { parseMessage } from "./events";
+import { createFocusTrap, type FocusTrap } from "./focus-trap";
+import { applyTheme, readAnimationDurationMs } from "./theme";
 import type {
   StashPayEventMap,
   StashPayHandle,
   StashPayOptions,
   StashPayState,
   StashPaymentEvent,
-} from './types';
-import {
-  resolveCheckoutUrl,
-  resolveMountContainer,
-} from './url';
+} from "./types";
+import { resolveCheckoutUrl, resolveMountContainer } from "./url";
 
 function requireDocument(): void {
-  if (typeof document === 'undefined') {
+  if (typeof document === "undefined") {
     throw new Error(
-      '[stash-pay] requires a browser environment (document is not defined).',
+      "[stash-pay] requires a browser environment (document is not defined).",
     );
   }
 }
@@ -59,7 +57,7 @@ export class StashPayController {
   private iframeErrorHandler: (() => void) | null = null;
   private closeTimeout: ReturnType<typeof setTimeout> | null = null;
   private loadTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
-  private _state: StashPayState = 'idle';
+  private _state: StashPayState = "idle";
   private _hasLoadedOnce = false;
   /** Terminal-event latch — set by the first success/failure. See `dispatchPaymentEvent`. */
   private _settled = false;
@@ -76,7 +74,7 @@ export class StashPayController {
     return this._state;
   }
   get isOpen(): boolean {
-    return this._state === 'open';
+    return this._state === "open";
   }
   get isReady(): boolean {
     return this._hasLoadedOnce;
@@ -86,12 +84,13 @@ export class StashPayController {
 
   /** Build DOM, attach listeners, insert into container, start open animation. */
   mount(): void {
-    if (this._state !== 'idle') {
+    if (this._state !== "idle") {
       throw new Error(
         `[stash-pay] cannot mount from state "${this._state}". Create a new controller.`,
       );
     }
     requireDocument();
+    this.log("mount: starting");
     this.wireCallbacks();
 
     const resolved = resolveCheckoutUrl(
@@ -108,20 +107,20 @@ export class StashPayController {
     try {
       container = resolveMountContainer(this.options.container);
     } catch (err) {
-      this.failMount(toStashPayError(err, 'MOUNT_ERROR'));
+      this.failMount(toStashPayError(err, "MOUNT_ERROR"));
     }
 
     if (container.dataset[DATA_ATTR.active]) {
       this.failMount(
         new StashPayError(
-          'MOUNT_ERROR',
-          '[stash-pay] a Stash Pay instance is already mounted in this container. Destroy the previous handle first.',
+          "MOUNT_ERROR",
+          "[stash-pay] a Stash Pay instance is already mounted in this container. Destroy the previous handle first.",
         ),
       );
     }
 
     this.container = container;
-    container.dataset[DATA_ATTR.active] = '1';
+    container.dataset[DATA_ATTR.active] = "1";
 
     try {
       const tree = buildTree(this.options);
@@ -129,6 +128,7 @@ export class StashPayController {
       applyOptionsToDom(tree, this.options);
       applyTheme(tree.root, this.options.theme);
       container.appendChild(tree.root);
+      this.log("mount: tree appended", { container });
 
       this.attachListeners();
       this.setIframeSrc(resolved.url.toString());
@@ -143,16 +143,16 @@ export class StashPayController {
       delete container.dataset[DATA_ATTR.active];
       this.container = null;
       this.tree = null;
-      this.failMount(toStashPayError(err, 'MOUNT_ERROR'));
+      this.failMount(toStashPayError(err, "MOUNT_ERROR"));
     }
   }
 
   open(): void {
-    if (this._state === 'destroyed') {
-      throw new Error('[stash-pay] cannot open a destroyed controller.');
+    if (this._state === "destroyed") {
+      throw new Error("[stash-pay] cannot open a destroyed controller.");
     }
-    if (this._state === 'open') return;
-    if (this._state === 'idle') {
+    if (this._state === "open") return;
+    if (this._state === "idle") {
       this.mount();
       return;
     }
@@ -165,11 +165,12 @@ export class StashPayController {
 
   close(): void {
     if (!this.tree) return;
-    if (this._state !== 'open') return;
+    if (this._state !== "open") return;
 
+    this.log("close: starting");
     this.clearLoadTimeout();
-    this._state = 'closing';
-    this.setStateAttr('closing');
+    this._state = "closing";
+    this.setStateAttr("closing");
     this.focusTrap?.deactivate();
 
     const duration = readAnimationDurationMs(
@@ -177,28 +178,29 @@ export class StashPayController {
       this.options.animationDuration ?? DEFAULT_ANIMATION_DURATION_MS,
     );
     this.closeTimeout = setTimeout(() => {
-      if (this._state !== 'closing') return;
-      this.setStateAttr('closed');
-      this._state = 'closed';
-      this.emitter.emit('close');
+      if (this._state !== "closing") return;
+      this.setStateAttr("closed");
+      this._state = "closed";
+      this.emitEvent("close");
       this.closeTimeout = null;
     }, duration + 50);
   }
 
   update(partial: Partial<StashPayOptions>): void {
-    if (this._state === 'destroyed') return;
+    if (this._state === "destroyed") return;
+    this.log("update:", Object.keys(partial));
     this.options = { ...this.options, ...partial };
 
     if (!this.tree) return;
 
-    if ('theme' in partial) applyTheme(this.tree.root, this.options.theme);
+    if ("theme" in partial) applyTheme(this.tree.root, this.options.theme);
     applyOptionsToDom(this.tree, this.options);
 
     if (
-      'checkoutUrl' in partial ||
-      'checkoutTheme' in partial ||
-      'checkoutLocale' in partial ||
-      'allowedCheckoutHosts' in partial
+      "checkoutUrl" in partial ||
+      "checkoutTheme" in partial ||
+      "checkoutLocale" in partial ||
+      "allowedCheckoutHosts" in partial
     ) {
       const resolved = resolveCheckoutUrl(
         this.options.checkoutUrl,
@@ -207,7 +209,7 @@ export class StashPayController {
         this.options.allowedCheckoutHosts,
       );
       if (!resolved.ok) {
-        this.emitter.emit('error', resolved.error);
+        this.emitEvent("error", resolved.error);
       } else {
         const nextSrc = resolved.url.toString();
         if (nextSrc !== this._currentSrc) this.setIframeSrc(nextSrc);
@@ -232,7 +234,8 @@ export class StashPayController {
   }
 
   destroy(): void {
-    if (this._state === 'destroyed') return;
+    if (this._state === "destroyed") return;
+    this.log("destroy: tearing down");
     try {
       this.detachListeners();
       this.focusTrap?.deactivate();
@@ -253,7 +256,7 @@ export class StashPayController {
       this.tree = null;
       this.focusTrap = null;
       this.ownedOffs.length = 0;
-      this._state = 'destroyed';
+      this._state = "destroyed";
     }
   }
 
@@ -278,16 +281,18 @@ export class StashPayController {
    * typed error.
    */
   private failMount(error: StashPayError): never {
-    this.emitter.emit('error', error);
+    this.log("mount: failed", error.code, error.message);
+    this.emitEvent("error", error);
     throw error;
   }
 
   private openInternal(): void {
-    if (this._state === 'destroyed') return;
-    this.setStateAttr('open');
-    this._state = 'open';
+    if (this._state === "destroyed") return;
+    this.log("open: state → open");
+    this.setStateAttr("open");
+    this._state = "open";
     this.focusTrap?.activate();
-    this.emitter.emit('open');
+    this.emitEvent("open");
   }
 
   private setStateAttr(state: StashPayState): void {
@@ -301,12 +306,13 @@ export class StashPayController {
    */
   private setIframeSrc(url: string): void {
     if (!this.tree) return;
+    this.log("iframe: setting src", url);
     this.clearLoadTimeout();
     this._hasLoadedOnce = false;
     this._settled = false;
     this._loadSettled = false;
     this._currentSrc = url;
-    this.tree.root.setAttribute(DATA_ATTR.loading, 'true');
+    this.tree.root.setAttribute(DATA_ATTR.loading, "true");
     this.tree.iframe.src = url;
     this.armLoadTimeout(url);
   }
@@ -318,18 +324,20 @@ export class StashPayController {
    */
   private armLoadTimeout(srcAtArm: string): void {
     const ms = this.options.loadTimeout;
-    if (typeof ms !== 'number' || ms <= 0) return;
+    if (typeof ms !== "number" || ms <= 0) return;
+    this.log("iframe: arming load timeout", ms, "ms");
     this.loadTimeoutTimer = setTimeout(() => {
       this.loadTimeoutTimer = null;
-      if (this._state === 'destroyed' || !this.tree) return;
+      if (this._state === "destroyed" || !this.tree) return;
       if (this._currentSrc !== srcAtArm) return;
       if (this._loadSettled) return;
       this._loadSettled = true;
-      this.tree.root.setAttribute(DATA_ATTR.loading, 'false');
-      this.emitter.emit(
-        'error',
+      this.tree.root.setAttribute(DATA_ATTR.loading, "false");
+      this.log("iframe: load timeout", ms, "ms");
+      this.emitEvent(
+        "error",
         new StashPayError(
-          'NETWORK_ERROR',
+          "NETWORK_ERROR",
           `Checkout did not load within ${ms}ms.`,
           { checkoutUrl: this.options.checkoutUrl, timeoutMs: ms },
         ),
@@ -350,28 +358,33 @@ export class StashPayController {
 
     this.messageHandler = (ev: MessageEvent) => {
       const parsed = parseMessage(ev, this.options.iframe?.allowedOrigins);
-      if (parsed) this.dispatchPaymentEvent(parsed);
+      if (parsed) {
+        this.log("message: parsed", parsed.type, parsed);
+        this.dispatchPaymentEvent(parsed);
+      } else {
+        this.log("message: ignored", { origin: ev.origin });
+      }
     };
-    window.addEventListener('message', this.messageHandler);
+    window.addEventListener("message", this.messageHandler);
 
     this.escapeHandler = (ev: KeyboardEvent) => {
-      if (ev.key !== 'Escape') return;
+      if (ev.key !== "Escape") return;
       if (!this.isOpen) return;
       if (this.options.dismissOnEscape === false) return;
       ev.stopPropagation();
       this.close();
     };
-    document.addEventListener('keydown', this.escapeHandler);
+    document.addEventListener("keydown", this.escapeHandler);
 
     this.backdropHandler = (ev: MouseEvent) => {
       if (ev.target !== backdrop) return;
       if (this.options.dismissOnBackdropClick === false) return;
       this.close();
     };
-    backdrop.addEventListener('click', this.backdropHandler);
+    backdrop.addEventListener("click", this.backdropHandler);
 
     this.closeHandler = () => this.close();
-    closeButton.addEventListener('click', this.closeHandler);
+    closeButton.addEventListener("click", this.closeHandler);
 
     this.iframeLoadHandler = () => {
       if (!this._currentSrc) return;
@@ -379,7 +392,8 @@ export class StashPayController {
       this.clearLoadTimeout();
       const wasFirst = !this._hasLoadedOnce;
       this._hasLoadedOnce = true;
-      root.setAttribute(DATA_ATTR.loading, 'false');
+      root.setAttribute(DATA_ATTR.loading, "false");
+      this.log("iframe: load", wasFirst ? "first" : "subsequent");
 
       installBridge(iframe, {
         onSuccess: (e) => this.dispatchPaymentEvent(e),
@@ -387,24 +401,26 @@ export class StashPayController {
         onProcessing: (e) => this.dispatchPaymentEvent(e),
         onClose: () => this.close(),
       });
+      this.log("iframe: bridge installed");
 
-      if (wasFirst) this.emitter.emit('ready');
+      if (wasFirst) this.emitEvent("ready");
     };
-    iframe.addEventListener('load', this.iframeLoadHandler);
+    iframe.addEventListener("load", this.iframeLoadHandler);
 
     this.iframeErrorHandler = () => {
       if (!this.tree || this._loadSettled) return;
       this._loadSettled = true;
       this.clearLoadTimeout();
-      this.tree.root.setAttribute(DATA_ATTR.loading, 'false');
-      this.emitter.emit(
-        'error',
-        new StashPayError('NETWORK_ERROR', 'Checkout iframe failed to load.', {
+      this.tree.root.setAttribute(DATA_ATTR.loading, "false");
+      this.log("iframe: error event");
+      this.emitEvent(
+        "error",
+        new StashPayError("NETWORK_ERROR", "Checkout iframe failed to load.", {
           checkoutUrl: this.options.checkoutUrl,
         }),
       );
     };
-    iframe.addEventListener('error', this.iframeErrorHandler);
+    iframe.addEventListener("error", this.iframeErrorHandler);
 
     this.focusTrap = createFocusTrap(root, () =>
       this.tree ? collectFocusables(this.tree) : [],
@@ -413,25 +429,25 @@ export class StashPayController {
 
   private detachListeners(): void {
     if (this.messageHandler) {
-      window.removeEventListener('message', this.messageHandler);
+      window.removeEventListener("message", this.messageHandler);
       this.messageHandler = null;
     }
     if (this.escapeHandler) {
-      document.removeEventListener('keydown', this.escapeHandler);
+      document.removeEventListener("keydown", this.escapeHandler);
       this.escapeHandler = null;
     }
     if (this.tree) {
       if (this.backdropHandler) {
-        this.tree.backdrop.removeEventListener('click', this.backdropHandler);
+        this.tree.backdrop.removeEventListener("click", this.backdropHandler);
       }
       if (this.closeHandler) {
-        this.tree.closeButton.removeEventListener('click', this.closeHandler);
+        this.tree.closeButton.removeEventListener("click", this.closeHandler);
       }
       if (this.iframeLoadHandler) {
-        this.tree.iframe.removeEventListener('load', this.iframeLoadHandler);
+        this.tree.iframe.removeEventListener("load", this.iframeLoadHandler);
       }
       if (this.iframeErrorHandler) {
-        this.tree.iframe.removeEventListener('error', this.iframeErrorHandler);
+        this.tree.iframe.removeEventListener("error", this.iframeErrorHandler);
       }
     }
     this.backdropHandler = null;
@@ -452,13 +468,13 @@ export class StashPayController {
       this.ownedOffs.push(this.emitter.on(event, handler));
     };
 
-    add('open', this.options.onOpen);
-    add('close', this.options.onClose);
-    add('ready', this.options.onReady);
-    add('error', this.options.onError);
-    add('success', this.options.onSuccess);
-    add('failure', this.options.onFailure);
-    add('processing', this.options.onProcessing);
+    add("open", this.options.onOpen);
+    add("close", this.options.onClose);
+    add("ready", this.options.onReady);
+    add("error", this.options.onError);
+    add("success", this.options.onSuccess);
+    add("failure", this.options.onFailure);
+    add("processing", this.options.onProcessing);
   }
 
   /**
@@ -471,22 +487,39 @@ export class StashPayController {
    * event arrives.
    */
   private dispatchPaymentEvent(event: StashPaymentEvent): void {
-    if (this._settled) return;
+    if (this._settled) {
+      this.log("payment: dropped (already settled)", event.type);
+      return;
+    }
+    this.log("payment: dispatch", event.type, event);
     switch (event.type) {
-      case 'success':
+      case "success":
         this._settled = true;
-        this.emitter.emit('success', event);
+        this.emitEvent("success", event);
         if (this.options.autoCloseOnSuccess !== false) this.close();
         break;
-      case 'failure':
+      case "failure":
         this._settled = true;
-        this.emitter.emit('failure', event);
+        this.emitEvent("failure", event);
         if (this.options.autoCloseOnFailure !== false) this.close();
         break;
-      case 'processing':
-        this.emitter.emit('processing', event);
+      case "processing":
+        this.emitEvent("processing", event);
         break;
     }
+  }
+
+  /** Emit a user-facing event, tracing the callback when debug is on. */
+  private emitEvent<K extends keyof StashPayEventMap>(
+    event: K,
+    ...args: Parameters<StashPayEventMap[K]>
+  ): void {
+    this.log(`callback:${event}`, ...args);
+    this.emitter.emit(event, ...args);
+  }
+
+  private log(...args: unknown[]): void {
+    debugLog(this.options.debug, ...args);
   }
 }
 

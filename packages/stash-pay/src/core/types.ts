@@ -3,32 +3,30 @@
  * Stable contract — anything exported here is part of the semver API.
  */
 
-export type {
-  StashPayErrorCode,
-} from './errors';
-export { StashPayError } from './errors';
-import type { StashPayError } from './errors';
+export type { StashPayErrorCode } from "./errors";
+export { StashPayError } from "./errors";
+import type { StashPayError } from "./errors";
 
 export type StashPayPosition =
-  | 'bottom-sheet'
-  | 'center-modal'
-  | 'side-panel-right'
-  | 'side-panel-left';
+  | "bottom-sheet"
+  | "center-modal"
+  | "side-panel-right"
+  | "side-panel-left";
 
 /**
  * Forwarded to the checkout page as a `?theme=` query parameter so the
  * checkout UI renders in the matching colour scheme. Affects the iframe
  * content only; for the surrounding card styling use the `theme` option.
  */
-export type StashCheckoutTheme = 'light' | 'dark';
+export type StashCheckoutTheme = "light" | "dark";
 
 export type StashPayState =
-  | 'idle'
-  | 'opening'
-  | 'open'
-  | 'closing'
-  | 'closed'
-  | 'destroyed';
+  | "idle"
+  | "opening"
+  | "open"
+  | "closing"
+  | "closed"
+  | "destroyed";
 
 export interface StashPayBackdropOptions {
   /** Blur in pixels (number) or any CSS length. Set 0/`'0'` to disable. */
@@ -49,7 +47,7 @@ export interface StashPayIframeOptions {
   /** Accessible title. */
   title?: string;
   referrerPolicy?: ReferrerPolicy;
-  loading?: 'eager' | 'lazy';
+  loading?: "eager" | "lazy";
   /**
    * If set, only postMessages whose `event.origin` matches one of these values
    * are processed. Leave undefined for permissive (v1-compatible) behavior.
@@ -87,13 +85,13 @@ export interface StashPayTheme {
 }
 
 export interface PaymentSuccessEvent {
-  type: 'success';
+  type: "success";
   orderId?: string;
   raw: Record<string, unknown>;
 }
 
 export interface PaymentFailureEvent {
-  type: 'failure';
+  type: "failure";
   /** Present when the checkout reached an order-bound state before failing. */
   orderId?: string;
   errorCode?: string;
@@ -102,7 +100,7 @@ export interface PaymentFailureEvent {
 }
 
 export interface PaymentProcessingEvent {
-  type: 'processing';
+  type: "processing";
   raw: Record<string, unknown>;
 }
 
@@ -180,6 +178,12 @@ export interface StashPayOptions {
    * (the default — the timeout is opt-in).
    */
   loadTimeout?: number;
+
+  /**
+   * When `true`, the SDK prints lifecycle and callback traces via `console.log`.
+   * Default: `false`.
+   */
+  debug?: boolean;
 
   // Callbacks
   onOpen?: () => void;
