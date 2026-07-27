@@ -7,7 +7,9 @@ export function debugLog(
   enabled: boolean | undefined,
   ...args: unknown[]
 ): void {
-  if (!enabled) return;
+  if (!enabled) {
+    return;
+  }
   // eslint-disable-next-line no-console
-  console.debug("[stash-pay]", ...args);
+  console.log("[stash-pay]", ...args);
 }

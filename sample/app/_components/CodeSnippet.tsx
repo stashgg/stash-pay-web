@@ -69,6 +69,7 @@ const PROP_ORDER: (keyof PlaygroundConfig)[] = [
   'iframe',
   'allowedCheckoutHosts',
   'loadTimeout',
+  'debug',
 ];
 
 function buildReactSnippet(config: PlaygroundConfig, url: string): string {

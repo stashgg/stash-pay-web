@@ -1,23 +1,23 @@
-import type { StashPayProps } from '@stashgg/stash-pay';
+import type { StashPayProps } from "@stashgg/stash-pay";
 
 export type PlaygroundConfig = Omit<
   StashPayProps,
-  'isOpen' | 'checkoutUrl' | keyof CallbackProps
+  "isOpen" | "checkoutUrl" | keyof CallbackProps
 >;
 
 type CallbackProps =
-  | 'onOpen'
-  | 'onClose'
-  | 'onReady'
-  | 'onError'
-  | 'onSuccess'
-  | 'onFailure'
-  | 'onProcessing';
+  | "onOpen"
+  | "onClose"
+  | "onReady"
+  | "onError"
+  | "onSuccess"
+  | "onFailure"
+  | "onProcessing";
 
 export const DEFAULT_CONFIG: PlaygroundConfig = {
   checkoutTheme: undefined,
   checkoutLocale: undefined,
-  position: 'bottom-sheet',
+  position: "bottom-sheet",
   width: undefined,
   height: undefined,
   zIndex: undefined,
@@ -29,20 +29,21 @@ export const DEFAULT_CONFIG: PlaygroundConfig = {
   autoCloseOnFailure: true,
   animationDuration: 300,
   backdrop: {
-    color: '',
+    color: "",
     opacity: undefined,
     blur: undefined,
     hidden: false,
   },
   theme: {
-    colorBackground: '',
-    colorAccent: '',
-    radius: '',
+    colorBackground: "",
+    colorAccent: "",
+    radius: "",
   },
   iframe: {
-    title: 'Stash Pay checkout',
+    title: "Stash Pay checkout",
   },
   ariaLabel: undefined,
   allowedCheckoutHosts: undefined,
   loadTimeout: undefined,
+  debug: undefined,
 };

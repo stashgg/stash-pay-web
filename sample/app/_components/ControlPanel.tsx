@@ -1,14 +1,18 @@
-'use client';
+"use client";
 
-import type { StashCheckoutTheme, StashPayPosition } from '@stashgg/stash-pay';
-import type { PlaygroundConfig } from '../_lib/defaults';
+import type { StashCheckoutTheme, StashPayPosition } from "@stashgg/stash-pay";
+import type { PlaygroundConfig } from "../_lib/defaults";
 
 interface ControlPanelProps {
   config: PlaygroundConfig;
   update: (patch: Partial<PlaygroundConfig>) => void;
-  updateBackdrop: (patch: Partial<NonNullable<PlaygroundConfig['backdrop']>>) => void;
-  updateTheme: (patch: Partial<NonNullable<PlaygroundConfig['theme']>>) => void;
-  updateIframe: (patch: Partial<NonNullable<PlaygroundConfig['iframe']>>) => void;
+  updateBackdrop: (
+    patch: Partial<NonNullable<PlaygroundConfig["backdrop"]>>,
+  ) => void;
+  updateTheme: (patch: Partial<NonNullable<PlaygroundConfig["theme"]>>) => void;
+  updateIframe: (
+    patch: Partial<NonNullable<PlaygroundConfig["iframe"]>>,
+  ) => void;
   onOpen: () => void;
   onClose: () => void;
   onCopyConfig: () => void;
@@ -21,30 +25,30 @@ interface ControlPanelProps {
 }
 
 const POSITIONS: { value: StashPayPosition; label: string }[] = [
-  { value: 'bottom-sheet', label: 'Bottom' },
-  { value: 'center-modal', label: 'Center' },
-  { value: 'side-panel-right', label: 'Right' },
-  { value: 'side-panel-left', label: 'Left' },
+  { value: "bottom-sheet", label: "Bottom" },
+  { value: "center-modal", label: "Center" },
+  { value: "side-panel-right", label: "Right" },
+  { value: "side-panel-left", label: "Left" },
 ];
 
 const CHECKOUT_THEMES: {
   value: StashCheckoutTheme | undefined;
   label: string;
 }[] = [
-  { value: undefined, label: 'Auto' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+  { value: undefined, label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
 const CHECKOUT_LOCALE_PRESETS: {
   value: string | undefined;
   label: string;
 }[] = [
-  { value: undefined, label: 'Auto' },
-  { value: 'en-US', label: 'en-US' },
-  { value: 'fr-FR', label: 'fr-FR' },
-  { value: 'de-DE', label: 'de-DE' },
-  { value: 'ja-JP', label: 'ja-JP' },
+  { value: undefined, label: "Auto" },
+  { value: "en-US", label: "en-US" },
+  { value: "fr-FR", label: "fr-FR" },
+  { value: "de-DE", label: "de-DE" },
+  { value: "ja-JP", label: "ja-JP" },
 ];
 
 function Section({
@@ -80,7 +84,7 @@ function Row({
 }
 
 const input =
-  'h-9 w-full rounded border border-stash-border bg-stash-paper px-3 text-[13px] text-stash-text outline-none transition placeholder:text-stash-text-soft/60 focus:border-stash-text/30';
+  "h-9 w-full rounded border border-stash-border bg-stash-paper px-3 text-[13px] text-stash-text outline-none transition placeholder:text-stash-text-soft/60 focus:border-stash-text/30";
 
 function Toggle({
   checked,
@@ -96,12 +100,12 @@ function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-stash-text transition ${
-        checked ? 'stash-accent-gradient' : 'bg-stash-paper'
+        checked ? "stash-accent-gradient" : "bg-stash-paper"
       }`}
     >
       <span
         className={`inline-block h-3 w-3 transform rounded-full bg-stash-text transition-transform ${
-          checked ? 'translate-x-[22px]' : 'translate-x-[2px]'
+          checked ? "translate-x-[22px]" : "translate-x-[2px]"
         }`}
       />
     </button>
@@ -134,7 +138,7 @@ export function ControlPanel({
           value={url}
           onChange={(e) => onUrlChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && canOpen) onOpen();
+            if (e.key === "Enter" && canOpen) onOpen();
           }}
           autoComplete="off"
           spellCheck={false}
@@ -145,7 +149,9 @@ export function ControlPanel({
           disabled={isGeneratingSampleCheckout}
           className="h-10 w-full rounded-full border border-stash-border-strong bg-stash-paper text-[13px] font-semibold text-stash-text transition hover:bg-white disabled:cursor-not-allowed disabled:border-stash-border disabled:text-stash-text-soft"
         >
-          {isGeneratingSampleCheckout ? 'Generating…' : 'Generate Sample Checkout'}
+          {isGeneratingSampleCheckout
+            ? "Generating…"
+            : "Generate Sample Checkout"}
         </button>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -153,7 +159,7 @@ export function ControlPanel({
             disabled={!canOpen}
             className="h-10 rounded-full border border-stash-border-strong bg-white text-[13px] font-semibold text-stash-text transition hover:bg-stash-paper disabled:cursor-not-allowed disabled:border-stash-border disabled:bg-stash-paper disabled:text-stash-text-soft"
           >
-            {isOpen ? 'Re-open' : 'Open'}
+            {isOpen ? "Re-open" : "Open"}
           </button>
           <button
             onClick={onClose}
@@ -175,8 +181,8 @@ export function ControlPanel({
                 onClick={() => update({ checkoutTheme: t.value })}
                 className={`h-9 rounded-full border text-[12px] font-medium transition ${
                   config.checkoutTheme === t.value
-                    ? 'border-stash-text bg-stash-text text-white'
-                    : 'border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong'
+                    ? "border-stash-text bg-stash-text text-white"
+                    : "border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong"
                 }`}
               >
                 {t.label}
@@ -196,8 +202,8 @@ export function ControlPanel({
                 onClick={() => update({ checkoutLocale: preset.value })}
                 className={`h-9 rounded-full border text-[12px] font-medium transition ${
                   config.checkoutLocale === preset.value
-                    ? 'border-stash-text bg-stash-text text-white'
-                    : 'border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong'
+                    ? "border-stash-text bg-stash-text text-white"
+                    : "border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong"
                 }`}
               >
                 {preset.label}
@@ -205,9 +211,9 @@ export function ControlPanel({
             ))}
           </div>
           <input
-            className={input + ' mt-2'}
+            className={input + " mt-2"}
             placeholder="Custom locale (e.g. es-MX)"
-            value={config.checkoutLocale ?? ''}
+            value={config.checkoutLocale ?? ""}
             onChange={(e) =>
               update({ checkoutLocale: e.target.value.trim() || undefined })
             }
@@ -222,7 +228,7 @@ export function ControlPanel({
           </button>
           <button
             type="button"
-            onClick={() => onUrlChange('not-a-valid-url')}
+            onClick={() => onUrlChange("not-a-valid-url")}
             className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted"
           >
             Try an invalid URL →
@@ -240,8 +246,8 @@ export function ControlPanel({
               onClick={() => update({ position: p.value })}
               className={`h-9 rounded-full border text-[12px] font-medium transition ${
                 config.position === p.value
-                  ? 'border-stash-text bg-stash-text text-white'
-                  : 'border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong'
+                  ? "border-stash-text bg-stash-text text-white"
+                  : "border-stash-border bg-stash-paper text-stash-text-muted hover:border-stash-border-strong"
               }`}
             >
               {p.label}
@@ -256,7 +262,7 @@ export function ControlPanel({
           <input
             className={input}
             placeholder="500px"
-            value={typeof config.width === 'string' ? config.width : ''}
+            value={typeof config.width === "string" ? config.width : ""}
             onChange={(e) => update({ width: e.target.value || undefined })}
           />
         </Row>
@@ -264,16 +270,16 @@ export function ControlPanel({
           <input
             className={input}
             placeholder="80vh"
-            value={typeof config.height === 'string' ? config.height : ''}
+            value={typeof config.height === "string" ? config.height : ""}
             onChange={(e) => update({ height: e.target.value || undefined })}
           />
         </Row>
         <Row label="z-index">
           <input
-            className={input + ' text-right'}
+            className={input + " text-right"}
             type="number"
             placeholder="auto"
-            value={config.zIndex ?? ''}
+            value={config.zIndex ?? ""}
             onChange={(e) =>
               update({
                 zIndex: e.target.value ? Number(e.target.value) : undefined,
@@ -323,7 +329,7 @@ export function ControlPanel({
           <Toggle
             checked={
               config.showDragBar ??
-              (config.position === 'bottom-sheet' ||
+              (config.position === "bottom-sheet" ||
                 config.position === undefined)
             }
             onChange={(v) => update({ showDragBar: v })}
@@ -344,7 +350,7 @@ export function ControlPanel({
             type="text"
             placeholder="rgba(0,0,0,0.4)"
             className={input}
-            value={config.backdrop?.color ?? ''}
+            value={config.backdrop?.color ?? ""}
             onChange={(e) =>
               updateBackdrop({ color: e.target.value || undefined })
             }
@@ -365,9 +371,9 @@ export function ControlPanel({
         </Row>
         <Row
           label={`Blur (${
-            typeof config.backdrop?.blur === 'number'
+            typeof config.backdrop?.blur === "number"
               ? `${config.backdrop.blur}px`
-              : config.backdrop?.blur ?? '4px'
+              : (config.backdrop?.blur ?? "4px")
           })`}
         >
           <input
@@ -376,7 +382,7 @@ export function ControlPanel({
             max="20"
             step="1"
             value={
-              typeof config.backdrop?.blur === 'number'
+              typeof config.backdrop?.blur === "number"
                 ? config.backdrop.blur
                 : 4
             }
@@ -393,7 +399,7 @@ export function ControlPanel({
             type="text"
             placeholder="#000000"
             className={input}
-            value={config.theme?.colorBackground ?? ''}
+            value={config.theme?.colorBackground ?? ""}
             onChange={(e) =>
               updateTheme({ colorBackground: e.target.value || undefined })
             }
@@ -404,7 +410,7 @@ export function ControlPanel({
             type="text"
             placeholder="#4f46e5"
             className={input}
-            value={config.theme?.colorAccent ?? ''}
+            value={config.theme?.colorAccent ?? ""}
             onChange={(e) =>
               updateTheme({ colorAccent: e.target.value || undefined })
             }
@@ -415,7 +421,7 @@ export function ControlPanel({
             type="text"
             placeholder="1.5rem"
             className={input}
-            value={config.theme?.radius ?? ''}
+            value={config.theme?.radius ?? ""}
             onChange={(e) =>
               updateTheme({ radius: e.target.value || undefined })
             }
@@ -442,7 +448,7 @@ export function ControlPanel({
           <input
             type="text"
             className={input}
-            value={config.iframe?.title ?? ''}
+            value={config.iframe?.title ?? ""}
             onChange={(e) =>
               updateIframe({ title: e.target.value || undefined })
             }
@@ -453,7 +459,7 @@ export function ControlPanel({
             type="text"
             className={input}
             placeholder="Stash Pay checkout"
-            value={config.ariaLabel ?? ''}
+            value={config.ariaLabel ?? ""}
             onChange={(e) => update({ ariaLabel: e.target.value || undefined })}
           />
         </Row>
@@ -466,10 +472,10 @@ export function ControlPanel({
             type="text"
             className={input}
             placeholder="pay.stash.gg, *.stashpreview.com"
-            value={(config.allowedCheckoutHosts ?? []).join(', ')}
+            value={(config.allowedCheckoutHosts ?? []).join(", ")}
             onChange={(e) => {
               const hosts = e.target.value
-                .split(',')
+                .split(",")
                 .map((s) => s.trim())
                 .filter(Boolean);
               update({
@@ -481,9 +487,9 @@ export function ControlPanel({
         <Row label="Load timeout (ms)">
           <input
             type="number"
-            className={input + ' text-right'}
+            className={input + " text-right"}
             placeholder="off"
-            value={config.loadTimeout ?? ''}
+            value={config.loadTimeout ?? ""}
             onChange={(e) =>
               update({
                 loadTimeout: e.target.value
@@ -491,6 +497,12 @@ export function ControlPanel({
                   : undefined,
               })
             }
+          />
+        </Row>
+        <Row label="Debug logging">
+          <Toggle
+            checked={config.debug ?? false}
+            onChange={(v) => update({ debug: v || undefined })}
           />
         </Row>
       </Section>
