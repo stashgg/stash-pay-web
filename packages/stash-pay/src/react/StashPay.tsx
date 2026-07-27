@@ -66,7 +66,7 @@ export interface StashPayProps {
   loadTimeout?: number;
 
   /**
-   * When `true`, the SDK prints lifecycle and callback traces via `console.debug`.
+   * When `true`, the SDK prints lifecycle and callback traces via `console.log`.
    * Default: `false`.
    */
   debug?: boolean;

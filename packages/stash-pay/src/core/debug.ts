@@ -1,6 +1,6 @@
 /**
  * Gated debug logger. No-ops unless `enabled` is `true`.
- * Prefixed for easy console filtering; uses `console.debug` so it stays
+ * Prefixed for easy console filtering; uses `console.log` so it stays
  * distinct from the always-on `console.error` in the emitter.
  */
 export function debugLog(
