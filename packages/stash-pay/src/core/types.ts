@@ -193,6 +193,16 @@ export interface StashPayOptions {
   onSuccess?: (e: PaymentSuccessEvent) => void;
   onFailure?: (e: PaymentFailureEvent) => void;
   onProcessing?: (e: PaymentProcessingEvent) => void;
+  /**
+   * Called when the checkout asks the host to open a URL in a top-level
+   * browsing context — e.g. Google Pay on WebKit, whose popup flow cannot
+   * complete inside a cross-origin iframe (storage partitioning severs the
+   * popup's session handoff). The URL is validated to stay on the checkout's
+   * own origin before this fires. Default: `window.open(url, '_blank',
+   * 'noopener,noreferrer')`. Hosts with stricter popup policies can override
+   * (e.g. route through their own navigation layer).
+   */
+  onOpenExternalBrowser?: (url: string) => void;
 }
 
 /**

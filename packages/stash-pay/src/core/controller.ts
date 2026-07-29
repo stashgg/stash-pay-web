@@ -357,11 +357,89 @@ export class StashPayController {
     }
   }
 
+  /**
+   * Handle the `openExternalBrowser` envelope posted by the checkout iframe
+   * when a payment flow must finish in a top-level browsing context (e.g.
+   * Google Pay on WebKit — its pay.google.com popup cannot hand its session
+   * back into a cross-origin iframe, so the checkout re-opens itself with
+   * `?dpm=gpay` at top level and auto-submits there).
+   *
+   * Security: the request is honored only when it comes from this
+   * controller's own iframe window AND the URL stays on the checkout's own
+   * origin. Anything else is swallowed (returns true so the message never
+   * reaches other handlers, but nothing opens).
+   *
+   * Returns `true` when the message was a (well- or mal-formed)
+   * openExternalBrowser envelope, `false` for unrelated messages.
+   */
+  private handleExternalBrowserRequest(ev: MessageEvent): boolean {
+    const data = ev.data as Record<string, unknown> | null;
+    if (!data || typeof data !== "object") return false;
+    if (data.source !== "stash_sdk" || data.method !== "openExternalBrowser") {
+      return false;
+    }
+
+    if (!this.tree || ev.source !== this.tree.iframe.contentWindow) {
+      this.log("externalBrowser: rejected (not our iframe)", {
+        origin: ev.origin,
+      });
+      return true;
+    }
+
+    const payload = data.payload;
+    const url =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>).url
+        : undefined;
+    if (typeof url !== "string") {
+      this.log("externalBrowser: rejected (missing url)");
+      return true;
+    }
+
+    let target: URL;
+    try {
+      target = new URL(url);
+    } catch {
+      this.log("externalBrowser: rejected (unparseable url)", { url });
+      return true;
+    }
+
+    let checkoutOrigin: string;
+    try {
+      checkoutOrigin = new URL(this.tree.iframe.src).origin;
+    } catch {
+      this.log("externalBrowser: rejected (no checkout origin)");
+      return true;
+    }
+
+    if (target.origin !== checkoutOrigin) {
+      this.log("externalBrowser: rejected (origin mismatch)", {
+        expected: checkoutOrigin,
+        got: target.origin,
+      });
+      return true;
+    }
+
+    this.log("externalBrowser: opening", { url: target.href });
+    if (this.options.onOpenExternalBrowser) {
+      this.options.onOpenExternalBrowser(target.href);
+      return true;
+    }
+
+    try {
+      window.open(target.href, "_blank", "noopener,noreferrer");
+    } catch {
+      /* popup blocked — nothing else we can do from the host */
+    }
+    return true;
+  }
+
   private attachListeners(): void {
     if (!this.tree) return;
     const { backdrop, closeButton, iframe, root } = this.tree;
 
     this.messageHandler = (ev: MessageEvent) => {
+      if (this.handleExternalBrowserRequest(ev)) return;
       const parsed = parseMessage(ev, this.options.iframe?.allowedOrigins);
       if (parsed) {
         this.log("message: parsed", parsed.type, parsed);
@@ -405,6 +483,7 @@ export class StashPayController {
         onFailure: (e) => this.dispatchPaymentEvent(e),
         onProcessing: (e) => this.dispatchPaymentEvent(e),
         onClose: () => this.close(),
+        onOpenExternalBrowser: this.options.onOpenExternalBrowser,
       });
       this.log("iframe: bridge installed");
 
