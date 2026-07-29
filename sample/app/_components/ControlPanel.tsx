@@ -454,6 +454,58 @@ export function ControlPanel({
             }
           />
         </Row>
+        <Row label="sandbox">
+          <input
+            type="text"
+            className={input}
+            placeholder="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            value={config.iframe?.sandbox ?? ""}
+            onChange={(e) =>
+              updateIframe({ sandbox: e.target.value || undefined })
+            }
+          />
+        </Row>
+        <Row label="allow">
+          <input
+            type="text"
+            className={input}
+            placeholder="payment"
+            value={config.iframe?.allow ?? ""}
+            onChange={(e) =>
+              updateIframe({ allow: e.target.value || undefined })
+            }
+          />
+        </Row>
+        <Row label="referrerPolicy">
+          <input
+            type="text"
+            className={input}
+            placeholder="e.g. no-referrer, origin"
+            value={config.iframe?.referrerPolicy ?? ""}
+            onChange={(e) =>
+              updateIframe({
+                referrerPolicy:
+                  (e.target.value as ReferrerPolicy) || undefined,
+              })
+            }
+          />
+        </Row>
+        <Row label="loading">
+          <input
+            type="text"
+            className={input}
+            placeholder="eager | lazy"
+            value={config.iframe?.loading ?? ""}
+            onChange={(e) =>
+              updateIframe({
+                loading:
+                  (e.target.value as NonNullable<
+                    PlaygroundConfig["iframe"]
+                  >["loading"]) || undefined,
+              })
+            }
+          />
+        </Row>
         <Row label="aria-label">
           <input
             type="text"
