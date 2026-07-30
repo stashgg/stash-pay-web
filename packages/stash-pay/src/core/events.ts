@@ -22,12 +22,17 @@ import type {
   StashPaymentEvent,
 } from './types';
 
-type LegacyKind = 'PAYMENT_SUCCESS' | 'PAYMENT_FAILURE' | 'PURCHASE_PROCESSING';
+type LegacyKind =
+  | 'PAYMENT_SUCCESS'
+  | 'PAYMENT_FAILURE'
+  | 'PURCHASE_PROCESSING'
+  | 'PURCHASE_COMPLETE';
 
 const LEGACY_KINDS = new Set<LegacyKind>([
   'PAYMENT_SUCCESS',
   'PAYMENT_FAILURE',
   'PURCHASE_PROCESSING',
+  'PURCHASE_COMPLETE',
 ]);
 
 type BridgeMethod =
@@ -114,6 +119,15 @@ function legacyKindToMethod(kind: LegacyKind): BridgeMethod {
       return 'onPaymentFailure';
     case 'PURCHASE_PROCESSING':
       return 'onPurchaseProcessing';
+    // Out-of-tab / express-handoff completion (e.g. Google Pay on WebKit):
+    // the checkout finishes in a separate top-level tab, so THIS tab never
+    // ran `onPaymentSuccess`. The success page emits PURCHASE_COMPLETE on
+    // mount as its sole success signal — surface it as a success event. In the
+    // normal in-tab flow a PAYMENT_SUCCESS already fired, and the controller's
+    // terminal latch drops this duplicate; so it only reaches the host when
+    // nothing else signalled success.
+    case 'PURCHASE_COMPLETE':
+      return 'onPaymentSuccess';
   }
 }
 
@@ -128,7 +142,10 @@ function buildEvent(
     case 'onPaymentSuccess': {
       const ev: PaymentSuccessEvent = {
         type: 'success',
-        orderId: readString('orderId'),
+        // The checkout sends the id as `paymentId`; `orderId` stays the public
+        // field but we fall back so hosts don't see `undefined` on the path
+        // that already works.
+        orderId: readString('orderId') ?? readString('paymentId'),
         raw,
       };
       return ev;
@@ -136,7 +153,7 @@ function buildEvent(
     case 'onPaymentFailure': {
       const ev: PaymentFailureEvent = {
         type: 'failure',
-        orderId: readString('orderId'),
+        orderId: readString('orderId') ?? readString('paymentId'),
         errorCode: readString('errorCode'),
         message: readString('message'),
         raw,
