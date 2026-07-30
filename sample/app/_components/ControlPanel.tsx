@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { StashCheckoutTheme, StashPayPosition } from "@stashgg/stash-pay";
 import type { PlaygroundConfig } from "../_lib/defaults";
 
@@ -13,6 +14,8 @@ interface ControlPanelProps {
   updateIframe: (
     patch: Partial<NonNullable<PlaygroundConfig["iframe"]>>,
   ) => void;
+  customCss: string;
+  onCustomCssChange: (next: string) => void;
   onOpen: () => void;
   onClose: () => void;
   onCopyConfig: () => void;
@@ -86,6 +89,9 @@ function Row({
 const input =
   "h-9 w-full rounded border border-stash-border bg-stash-paper px-3 text-[13px] text-stash-text outline-none transition placeholder:text-stash-text-soft/60 focus:border-stash-text/30";
 
+const textarea =
+  "w-full rounded border border-stash-border bg-stash-paper p-3 font-mono text-[12px] leading-relaxed text-stash-text outline-none transition placeholder:text-stash-text-soft/60 focus:border-stash-text/30";
+
 function Toggle({
   checked,
   onChange,
@@ -118,6 +124,8 @@ export function ControlPanel({
   updateBackdrop,
   updateTheme,
   updateIframe,
+  customCss,
+  onCustomCssChange,
   onOpen,
   onClose,
   onCopyConfig,
@@ -128,6 +136,18 @@ export function ControlPanel({
   onGenerateSampleCheckout,
   isGeneratingSampleCheckout,
 }: ControlPanelProps) {
+  const [cssCopied, setCssCopied] = useState(false);
+
+  const copyCss = () => {
+    navigator.clipboard
+      .writeText(customCss)
+      .then(() => {
+        setCssCopied(true);
+        setTimeout(() => setCssCopied(false), 1200);
+      })
+      .catch(() => {});
+  };
+
   return (
     <div className="space-y-5">
       {/* Checkout URL */}
@@ -557,6 +577,40 @@ export function ControlPanel({
             onChange={(v) => update({ debug: v || undefined })}
           />
         </Row>
+      </Section>
+
+      {/* Custom CSS */}
+      <Section title="Custom CSS override">
+        <p className="text-[12px] leading-relaxed text-stash-text-soft">
+          Live-applied to the modal. Target the SDK&apos;s public classes (e.g.{" "}
+          <code>.stash-pay__card</code>). Copy and send this block to the client.
+        </p>
+        <textarea
+          className={textarea}
+          rows={10}
+          spellCheck={false}
+          placeholder={".stash-pay__card { max-width: 480px; }"}
+          value={customCss}
+          onChange={(e) => onCustomCssChange(e.target.value)}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={copyCss}
+            disabled={!customCss.trim()}
+            className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {cssCopied ? "Copied!" : "Copy CSS →"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onCustomCssChange("")}
+            disabled={!customCss}
+            className="text-[12px] text-stash-text-soft underline decoration-stash-border underline-offset-4 transition hover:text-stash-text hover:decoration-stash-text-muted disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Clear
+          </button>
+        </div>
       </Section>
     </div>
   );

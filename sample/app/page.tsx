@@ -64,6 +64,7 @@ export default function Playground() {
   const [url, setUrl] = useState('https://test.stashpreview.com/');
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [customCss, setCustomCss] = useState('');
   const [isGeneratingSampleCheckout, setIsGeneratingSampleCheckout] =
     useState(false);
 
@@ -183,6 +184,8 @@ export default function Playground() {
             updateBackdrop={updateBackdrop}
             updateTheme={updateTheme}
             updateIframe={updateIframe}
+            customCss={customCss}
+            onCustomCssChange={setCustomCss}
             onOpen={handleOpen}
             onClose={handleClose}
             onCopyConfig={handleCopyConfig}
@@ -200,6 +203,14 @@ export default function Playground() {
           <CodeSnippet config={sdkProps} checkoutUrl={url.trim()} />
         </div>
       </div>
+
+      {customCss.trim() && (
+        // Playground-only: lets you test CSS overrides against the modal's
+        // public classes. The SDK has no custom-CSS prop — this is your own
+        // stylesheet, injected after the SDK styles so equal-specificity
+        // rules win.
+        <style dangerouslySetInnerHTML={{ __html: customCss }} />
+      )}
 
       <StashPay
         isOpen={isOpen}
