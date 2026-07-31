@@ -11,7 +11,11 @@
  */
 
 import { installBridge } from "./bridge";
-import { DATA_ATTR, DEFAULT_ANIMATION_DURATION_MS } from "./constants";
+import {
+  DATA_ATTR,
+  DEFAULT_ANIMATION_DURATION_MS,
+  MESSAGE_PREFIX,
+} from "./constants";
 import { debugLog } from "./debug";
 import {
   applyOptionsToDom,
@@ -33,6 +37,14 @@ import type {
   StashPaymentEvent,
 } from "./types";
 import { resolveCheckoutUrl, resolveMountContainer } from "./url";
+
+/**
+ * Posted by the success page's "back to game" / close action. A page-initiated
+ * `window.close()` cannot dismiss a cross-origin iframe, so the checkout also
+ * emits this over postMessage; without honoring it, that button is a dead end
+ * and only the host's own close button dismisses the card.
+ */
+const CLOSE_SUCCESS_WINDOW_EVENT = `${MESSAGE_PREFIX}CLOSE_PURCHASE_SUCCESS_WINDOW`;
 
 function requireDocument(): void {
   if (typeof document === "undefined") {
@@ -357,11 +369,37 @@ export class StashPayController {
     }
   }
 
+  /**
+   * Honor the success page's "back to game" / close request. Cross-origin the
+   * page's own `window.close()` is a no-op on our iframe, so the checkout also
+   * posts CLOSE_PURCHASE_SUCCESS_WINDOW; we translate it into a card close.
+   * Accepted only from this controller's own iframe. `close()` is a no-op when
+   * the card isn't open, so this is safe even after `autoCloseOnSuccess`.
+   *
+   * Returns `true` when the message was the close signal (handled or rejected),
+   * `false` for unrelated messages.
+   */
+  private handleCloseSuccessWindow(ev: MessageEvent): boolean {
+    const data = ev.data as Record<string, unknown> | null;
+    if (!data || typeof data !== "object") return false;
+    if (data.eventName !== CLOSE_SUCCESS_WINDOW_EVENT) return false;
+
+    if (!this.tree || ev.source !== this.tree.iframe.contentWindow) {
+      this.log("close-window: rejected (not our iframe)", { origin: ev.origin });
+      return true;
+    }
+
+    this.log("close-window: honoring back-to-game close");
+    this.close();
+    return true;
+  }
+
   private attachListeners(): void {
     if (!this.tree) return;
     const { backdrop, closeButton, iframe, root } = this.tree;
 
     this.messageHandler = (ev: MessageEvent) => {
+      if (this.handleCloseSuccessWindow(ev)) return;
       const parsed = parseMessage(ev, this.options.iframe?.allowedOrigins);
       if (parsed) {
         this.log("message: parsed", parsed.type, parsed);
