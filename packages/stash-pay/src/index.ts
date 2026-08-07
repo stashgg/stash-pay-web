@@ -7,6 +7,8 @@
 export { StashPay, useStashPay } from './react';
 export type { StashPayProps } from './react';
 export { preconnect } from './core/preconnect';
+export { isWebKitEngine } from './core/is-webkit-engine';
+export type { WebKitEngineHints } from './core/is-webkit-engine';
 export { StashPayError } from './core/errors';
 export type {
   PaymentFailureEvent,

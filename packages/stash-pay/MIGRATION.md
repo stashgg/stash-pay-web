@@ -169,3 +169,50 @@ failures from the checkout page. Invalid URLs and mount errors use **`onError`**
 - `loadTimeout` remains **opt-in** for slow or unreachable hosts (e.g. a valid-looking
   URL whose server never responds).
 - `update()` with a new invalid `checkoutUrl` still emits `onError` only (does not throw).
+
+---
+
+## Already on 2.2.x? Upgrading to 2.3.0
+
+**2.3.0 is a minor release with a Safari / WebKit behavior change.** Chromium and
+other non-WebKit hosts are unchanged (iframe drawer). No pie-mono / DNS / CNAME
+work is required — partners only need an npm bump of `@stashgg/stash-pay`.
+
+### What changed
+
+On WebKit (desktop Safari + all iOS browsers), the SDK **no longer mounts the
+checkout iframe**. It opens checkout **top-level** (`window.open` without
+`noopener`) so Apple Pay / Google Pay run first-party. If the popup is blocked,
+it falls back to `location.assign(checkoutUrl)`.
+
+| | ≤ 2.2.x | 2.3.0 |
+| --- | --- | --- |
+| Chrome / Edge / Firefox | iframe drawer | iframe drawer (unchanged) |
+| Safari / iOS | iframe drawer (GPay often fails) | top-level tab (default) |
+
+### What you should do
+
+1. Bump `@stashgg/stash-pay` to `^2.3.0` and republish / redeploy the host.
+2. Prefer calling `open()` / `useStashPay().open()` **synchronously from the pay
+   click** once `checkoutUrl` is ready — async `isOpen=true` after `await fetch`
+   often gets the popup blocked (then the SDK redirects the host page).
+3. Optional: handle `onTopLevelNavigation` if you need analytics for tab vs redirect.
+4. Optional opt-out: `preferTopLevelOnWebKit: false` keeps the iframe path (wallets
+   on Safari will still hit the known GPay iframe failure).
+
+```tsx
+<StashPay
+  isOpen={open}
+  checkoutUrl={url}
+  onTopLevelNavigation={({ mode }) => {
+    // mode === 'tab' | 'redirect'
+  }}
+  onSuccess={(e) => { /* … */ }}
+  onClose={() => setOpen(false)}
+/>
+```
+
+### Unchanged
+
+- Chromium iframe path, success/failure latching, postMessage envelopes.
+- `openExternalBrowser` bridge helper (orthogonal — used when partners keep Safari iframes).

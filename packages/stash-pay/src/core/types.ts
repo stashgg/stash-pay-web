@@ -185,6 +185,27 @@ export interface StashPayOptions {
    */
   debug?: boolean;
 
+  /**
+   * On WebKit (desktop Safari + all iOS browsers), open checkout in a new
+   * top-level tab instead of the iframe drawer so Apple Pay / Google Pay can
+   * complete first-party. Default: `true`. Set `false` to keep the iframe path
+   * (not recommended — GPay typically fails with `OR_BIBED_15` in cross-origin
+   * iframes on WebKit).
+   *
+   * Chromium and other non-WebKit engines always use the iframe drawer.
+   */
+  preferTopLevelOnWebKit?: boolean;
+
+  /**
+   * Fired when WebKit top-level checkout navigates: `mode: 'tab'` after a
+   * successful `window.open`, or `mode: 'redirect'` when the popup is blocked
+   * and the SDK falls back to `location.assign(checkoutUrl)`.
+   */
+  onTopLevelNavigation?: (info: {
+    url: string;
+    mode: "tab" | "redirect";
+  }) => void;
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;

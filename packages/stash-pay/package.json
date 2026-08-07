@@ -1,6 +1,6 @@
 {
   "name": "@stashgg/stash-pay",
-  "version": "2.2.4",
+  "version": "2.3.0",
   "description": "Embeddable Stash Pay checkout SDK — React component + framework-agnostic core + script-tag UMD.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -35,6 +35,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rimraf dist"
   },
   "keywords": [
@@ -71,8 +73,10 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "happy-dom": "^17.6.3",
     "rimraf": "^6.0.1",
     "tsup": "^8.3.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

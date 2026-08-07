@@ -128,6 +128,8 @@ try {
 | `allowedCheckoutHosts` | `string[]` | — | Optional host allowlist for `checkoutUrl`. Entries are exact hosts (`pay.stash.gg`) or `*.domain` wildcards (apex + any subdomain). If set and the URL's host is not allowed, pre-flight validation fails with `DOMAIN_NOT_ALLOWED`. Distinct from `iframe.allowedOrigins`, which validates `postMessage` origins. |
 | `loadTimeout` | `number` (ms) | — | If the checkout iframe does not load within this many ms, `onError` fires with `NETWORK_ERROR`. Omitted or `0` disables the timeout (opt-in). |
 | `debug` | `boolean` | `false` | When `true`, logs SDK lifecycle and callback traces via `console.log` (`[stash-pay]` prefix). |
+| `preferTopLevelOnWebKit` | `boolean` | `true` | On WebKit (desktop Safari + all iOS browsers), open checkout in a **new top-level tab** instead of the iframe drawer so Apple Pay / Google Pay can complete. Chromium always keeps the iframe drawer. Set `false` to force the iframe path (not recommended for Safari wallets). |
+| `onTopLevelNavigation` | `(info: { url: string; mode: 'tab' \| 'redirect' }) => void` | — | Fired when WebKit top-level checkout opens a tab (`mode: 'tab'`) or falls back to `location.assign` because the popup was blocked (`mode: 'redirect'`). |
 | `injectStyles` | `boolean` | UMD: `true`, else `false` | Runtime `<style>` injection toggle. |
 | `cspNonce` | `string` | — | Applied to the injected `<style>` when runtime injection is enabled. |
 | `onOpen / onClose / onReady / onSuccess / onFailure / onProcessing` | fn | — | Callbacks. |
@@ -407,6 +409,49 @@ window.parent.postMessage(
 Both envelopes resolve to the same typed `onSuccess` callback — pick
 whichever is easier to emit from the checkout page.
 
+## Safari / WebKit (top-level checkout)
+
+On **WebKit** (desktop Safari and every iOS browser), Google Pay cannot complete
+inside a **cross-origin iframe** — storage partitioning breaks the
+`pay.google.com` popup handoff (`OR_BIBED_15`, crash/reload loops). Starting in
+**2.3.0**, the SDK detects WebKit and **skips the iframe drawer**: it opens
+checkout in a new top-level tab so wallets run first-party.
+
+| Engine | Behavior |
+| --- | --- |
+| WebKit (Safari / iOS) | Top-level tab via `window.open(url, '_blank')` — **no** `noopener` (checkout needs `window.opener` for host callbacks) |
+| Chromium / others | Unchanged iframe drawer |
+
+If the popup is blocked, the SDK falls back to `location.assign(checkoutUrl)`
+so payment can still complete (the host page navigates away). Listen with
+`onTopLevelNavigation` if you need to distinguish tab vs redirect.
+
+**Call `open()` from a user gesture.** Browsers often block `window.open` when
+it runs after an `await` (e.g. fetch the checkout URL, then set React
+`isOpen=true`). Prefer:
+
+```ts
+// Good — open() runs in the click turn with a ready URL
+button.onclick = () => open({ checkoutUrl, onSuccess });
+```
+
+```tsx
+// Better for React when the URL is already known:
+const { open } = useStashPay();
+<button onClick={() => open({ checkoutUrl, onSuccess })}>Pay</button>
+
+// Declarative <StashPay isOpen> mounts in an effect — if the popup is blocked,
+// the SDK redirects via location.assign. Fetch the URL before the click when possible.
+```
+
+Opt out (not recommended for wallet flows):
+
+```ts
+open({ checkoutUrl, preferTopLevelOnWebKit: false });
+```
+
+`isWebKitEngine()` is exported if hosts need the same detection.
+
 ## Security notes
 
 - The default iframe `sandbox` includes `allow-same-origin` — this is required for the bridge installation, for the checkout page to read its own cookies, redirect through 3DS providers, and drive the webhook round-trip. Override via `iframe.sandbox` if you understand the implications.
@@ -426,6 +471,7 @@ See [MIGRATION.md](./MIGRATION.md). Highlights:
 - Callbacks now fire **before** the auto-close animation starts.
 - Width prop unchanged; new `height`, `position`, `backdrop`, `theme`, `iframe`, dismiss and auto-close flags are all additive.
 - **2.2.x:** pre-flight failures from `open()` throw `StashPayError` and return no handle — see [Upgrading to 2.2.x](./MIGRATION.md#already-on-21x-upgrading-to-22x) in MIGRATION.md.
+- **2.3.0:** on WebKit, checkout opens top-level (not the iframe drawer) — see [Safari / WebKit](#safari--webkit-top-level-checkout) and [Upgrading to 2.3.0](./MIGRATION.md#already-on-22x-upgrading-to-230).
 
 ## Browser support
 

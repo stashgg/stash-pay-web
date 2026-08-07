@@ -71,6 +71,20 @@ export interface StashPayProps {
    */
   debug?: boolean;
 
+  /**
+   * On WebKit, open checkout top-level instead of the iframe drawer.
+   * Default: `true`. See README (Safari / WebKit).
+   */
+  preferTopLevelOnWebKit?: boolean;
+
+  /**
+   * Fired when WebKit top-level checkout opens a tab or falls back to redirect.
+   */
+  onTopLevelNavigation?: (info: {
+    url: string;
+    mode: "tab" | "redirect";
+  }) => void;
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
@@ -108,6 +122,7 @@ const DOM_OPTION_KEYS: (keyof StashPayProps)[] = [
   "allowedCheckoutHosts",
   "loadTimeout",
   "debug",
+  "preferTopLevelOnWebKit",
 ];
 
 function buildOptions(
@@ -139,7 +154,10 @@ function buildOptions(
     allowedCheckoutHosts: p.allowedCheckoutHosts,
     loadTimeout: p.loadTimeout,
     debug: p.debug,
+    preferTopLevelOnWebKit: p.preferTopLevelOnWebKit,
     // Callback proxies — stable identity, always the latest closure.
+    onTopLevelNavigation: (info) =>
+      propsRef.current.onTopLevelNavigation?.(info),
     onOpen: () => propsRef.current.onOpen?.(),
     onClose: () => propsRef.current.onClose?.(),
     onReady: () => propsRef.current.onReady?.(),

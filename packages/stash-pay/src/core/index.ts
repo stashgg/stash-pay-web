@@ -11,6 +11,8 @@ export {
 } from './controller';
 export { injectStyles } from './styles-inject';
 export { preconnect } from './preconnect';
+export { isWebKitEngine } from './is-webkit-engine';
+export type { WebKitEngineHints } from './is-webkit-engine';
 export type {
   PaymentFailureEvent,
   PaymentProcessingEvent,

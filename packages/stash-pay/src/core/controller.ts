@@ -27,6 +27,7 @@ import { Emitter } from "./emitter";
 import { StashPayError, toStashPayError } from "./errors";
 import { parseMessage } from "./events";
 import { createFocusTrap, type FocusTrap } from "./focus-trap";
+import { isWebKitEngine } from "./is-webkit-engine";
 import { preconnectOrigin } from "./preconnect";
 import { applyTheme, readAnimationDurationMs } from "./theme";
 import type {
@@ -38,6 +39,11 @@ import type {
 } from "./types";
 import { resolveCheckoutUrl, resolveMountContainer } from "./url";
 
+/** How checkout is presented for this controller instance. */
+type PresentationMode = "iframe" | "top-level";
+
+/** Poll interval for detecting `window.open` child closed by the user. */
+const CHILD_CLOSED_POLL_MS = 500;
 /**
  * Posted by the success page's "back to game" / close action. A page-initiated
  * `window.close()` cannot dismiss a cross-origin iframe, so the checkout also
@@ -77,6 +83,11 @@ export class StashPayController {
   /** Load-outcome latch — the first of load / error / timeout wins. */
   private _loadSettled = false;
   private _currentSrc: string | null = null;
+  /** iframe drawer vs WebKit top-level tab/redirect. Set in `mount()`. */
+  private _presentation: PresentationMode = "iframe";
+  /** Child window from `window.open` (top-level presentation only). */
+  private _childWindow: Window | null = null;
+  private childClosedPoll: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: StashPayOptions) {
     this.options = { ...options };
@@ -120,6 +131,64 @@ export class StashPayController {
     // tree building instead of blocking the iframe's first navigation.
     preconnectOrigin(resolved.url.origin);
 
+    if (this.shouldOpenTopLevel()) {
+      this.mountTopLevel(resolved.url.toString());
+      return;
+    }
+
+    this.mountIframe(resolved.url.toString());
+  }
+
+  /**
+   * WebKit + preferTopLevelOnWebKit (default true): open checkout top-level so
+   * wallets run first-party. Non-WebKit always uses the iframe drawer.
+   */
+  private shouldOpenTopLevel(): boolean {
+    if (this.options.preferTopLevelOnWebKit === false) return false;
+    return isWebKitEngine();
+  }
+
+  /**
+   * Skip the iframe drawer. Open checkout in a new tab (preserving
+   * `window.opener` — do **not** pass `noopener`) so postMessage callbacks
+   * reach the host. If the popup is blocked, fall back to `location.assign`
+   * so payment can still complete.
+   */
+  private mountTopLevel(url: string): void {
+    this._presentation = "top-level";
+    this._settled = false;
+    this._currentSrc = url;
+    this.log("mount: top-level WebKit path", url);
+
+    this.attachTopLevelListeners();
+
+    // No feature string — `noopener` / `noreferrer` would clear `window.opener`
+    // and break checkout → host postMessage callbacks.
+    const child = window.open(url, "_blank");
+
+    if (!child || child.closed) {
+      this.log("mount: popup blocked — falling back to location.assign");
+      this.options.onTopLevelNavigation?.({ url, mode: "redirect" });
+      // Host page unloads; leave state as idle-ish — assign navigates away.
+      this._state = "open";
+      this.emitEvent("open");
+      window.location.assign(url);
+      return;
+    }
+
+    this._childWindow = child;
+    this.options.onTopLevelNavigation?.({ url, mode: "tab" });
+    this._state = "open";
+    this.emitEvent("open");
+    // No iframe load event — treat successful open as ready.
+    this._hasLoadedOnce = true;
+    this.emitEvent("ready");
+    this.startChildClosedPoll();
+  }
+
+  private mountIframe(url: string): void {
+    this._presentation = "iframe";
+
     let container: HTMLElement;
     try {
       container = resolveMountContainer(this.options.container);
@@ -148,7 +217,7 @@ export class StashPayController {
       this.log("mount: tree appended", { container });
 
       this.attachListeners();
-      this.setIframeSrc(resolved.url.toString());
+      this.setIframeSrc(url);
 
       // Two rAFs let the browser paint the initial `closed` state before we
       // flip to `open`, which is what makes the transition animate.
@@ -173,6 +242,21 @@ export class StashPayController {
       this.mount();
       return;
     }
+    if (this._presentation === "top-level") {
+      // Re-open checkout top-level after a prior close (child was dismissed).
+      const resolved = resolveCheckoutUrl(
+        this.options.checkoutUrl,
+        this.options.checkoutTheme,
+        this.options.checkoutLocale,
+        this.options.allowedCheckoutHosts,
+      );
+      if (!resolved.ok) {
+        this.emitEvent("error", resolved.error);
+        return;
+      }
+      this.reopenTopLevel(resolved.url.toString());
+      return;
+    }
     if (this.closeTimeout) {
       clearTimeout(this.closeTimeout);
       this.closeTimeout = null;
@@ -181,6 +265,10 @@ export class StashPayController {
   }
 
   close(): void {
+    if (this._presentation === "top-level") {
+      this.closeTopLevel();
+      return;
+    }
     if (!this.tree) return;
     if (this._state !== "open") return;
 
@@ -207,6 +295,34 @@ export class StashPayController {
     if (this._state === "destroyed") return;
     this.log("update:", Object.keys(partial));
     this.options = { ...this.options, ...partial };
+
+    if (this._presentation === "top-level") {
+      this.wireCallbacks();
+      if (
+        "checkoutUrl" in partial ||
+        "checkoutTheme" in partial ||
+        "checkoutLocale" in partial ||
+        "allowedCheckoutHosts" in partial
+      ) {
+        const resolved = resolveCheckoutUrl(
+          this.options.checkoutUrl,
+          this.options.checkoutTheme,
+          this.options.checkoutLocale,
+          this.options.allowedCheckoutHosts,
+        );
+        if (!resolved.ok) {
+          this.emitEvent("error", resolved.error);
+        } else {
+          const nextSrc = resolved.url.toString();
+          if (nextSrc !== this._currentSrc && this._state === "open") {
+            this.reopenTopLevel(nextSrc);
+          } else {
+            this._currentSrc = nextSrc;
+          }
+        }
+      }
+      return;
+    }
 
     if (!this.tree) return;
 
@@ -255,12 +371,21 @@ export class StashPayController {
     this.log("destroy: tearing down");
     try {
       this.detachListeners();
+      this.stopChildClosedPoll();
       this.focusTrap?.deactivate();
       if (this.closeTimeout) {
         clearTimeout(this.closeTimeout);
         this.closeTimeout = null;
       }
       this.clearLoadTimeout();
+      if (this._childWindow && !this._childWindow.closed) {
+        try {
+          this._childWindow.close();
+        } catch {
+          /* cross-origin close can throw in some browsers */
+        }
+      }
+      this._childWindow = null;
       if (this.tree?.root.parentNode) {
         this.tree.root.parentNode.removeChild(this.tree.root);
       }
@@ -373,8 +498,9 @@ export class StashPayController {
    * Honor the success page's "back to game" / close request. Cross-origin the
    * page's own `window.close()` is a no-op on our iframe, so the checkout also
    * posts CLOSE_PURCHASE_SUCCESS_WINDOW; we translate it into a card close.
-   * Accepted only from this controller's own iframe. `close()` is a no-op when
-   * the card isn't open, so this is safe even after `autoCloseOnSuccess`.
+   * Accepted only from this controller's own iframe or top-level child.
+   * `close()` is a no-op when the card isn't open, so this is safe even after
+   * `autoCloseOnSuccess`.
    *
    * Returns `true` when the message was the close signal (handled or rejected),
    * `false` for unrelated messages.
@@ -384,8 +510,10 @@ export class StashPayController {
     if (!data || typeof data !== "object") return false;
     if (data.eventName !== CLOSE_SUCCESS_WINDOW_EVENT) return false;
 
-    if (!this.tree || ev.source !== this.tree.iframe.contentWindow) {
-      this.log("close-window: rejected (not our iframe)", { origin: ev.origin });
+    if (!this.isTrustedCheckoutSource(ev)) {
+      this.log("close-window: rejected (untrusted source)", {
+        origin: ev.origin,
+      });
       return true;
     }
 
@@ -394,12 +522,121 @@ export class StashPayController {
     return true;
   }
 
+  /**
+   * True when `ev` comes from this instance's checkout surface: the iframe
+   * `contentWindow`, or the top-level `window.open` child.
+   */
+  private isTrustedCheckoutSource(ev: MessageEvent): boolean {
+    if (this._presentation === "top-level") {
+      return this._childWindow !== null && ev.source === this._childWindow;
+    }
+    return (
+      this.tree !== null && ev.source === this.tree.iframe.contentWindow
+    );
+  }
+
+  private attachTopLevelListeners(): void {
+    this.messageHandler = (ev: MessageEvent) => {
+      if (!this.isTrustedCheckoutSource(ev)) {
+        this.log("message: ignored (untrusted source)", { origin: ev.origin });
+        return;
+      }
+      if (this.handleCloseSuccessWindow(ev)) return;
+      const parsed = parseMessage(ev, this.options.iframe?.allowedOrigins);
+      if (parsed) {
+        this.log("message: parsed", parsed.type, parsed);
+        this.dispatchPaymentEvent(parsed);
+      } else {
+        this.log("message: ignored", { origin: ev.origin });
+      }
+    };
+    window.addEventListener("message", this.messageHandler);
+  }
+
+  private closeTopLevel(): void {
+    if (this._state !== "open") return;
+    this.log("close: top-level");
+    this.stopChildClosedPoll();
+    if (this._childWindow && !this._childWindow.closed) {
+      try {
+        this._childWindow.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    this._childWindow = null;
+    this._state = "closed";
+    this.emitEvent("close");
+  }
+
+  private reopenTopLevel(url: string): void {
+    this.stopChildClosedPoll();
+    if (this._childWindow && !this._childWindow.closed) {
+      try {
+        this._childWindow.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    this._childWindow = null;
+    this._settled = false;
+    this._currentSrc = url;
+    this._hasLoadedOnce = false;
+
+    const child = window.open(url, "_blank");
+    if (!child || child.closed) {
+      this.log("reopen: popup blocked — falling back to location.assign");
+      this.options.onTopLevelNavigation?.({ url, mode: "redirect" });
+      this._state = "open";
+      this.emitEvent("open");
+      window.location.assign(url);
+      return;
+    }
+
+    this._childWindow = child;
+    this.options.onTopLevelNavigation?.({ url, mode: "tab" });
+    this._state = "open";
+    this.emitEvent("open");
+    this._hasLoadedOnce = true;
+    this.emitEvent("ready");
+    this.startChildClosedPoll();
+  }
+
+  private startChildClosedPoll(): void {
+    this.stopChildClosedPoll();
+    this.childClosedPoll = setInterval(() => {
+      if (!this._childWindow) {
+        this.stopChildClosedPoll();
+        return;
+      }
+      if (this._childWindow.closed) {
+        this.log("top-level: child window closed");
+        this._childWindow = null;
+        this.stopChildClosedPoll();
+        if (this._state === "open") {
+          this._state = "closed";
+          this.emitEvent("close");
+        }
+      }
+    }, CHILD_CLOSED_POLL_MS);
+  }
+
+  private stopChildClosedPoll(): void {
+    if (this.childClosedPoll) {
+      clearInterval(this.childClosedPoll);
+      this.childClosedPoll = null;
+    }
+  }
+
   private attachListeners(): void {
     if (!this.tree) return;
     const { backdrop, closeButton, iframe, root } = this.tree;
 
     this.messageHandler = (ev: MessageEvent) => {
       if (this.handleCloseSuccessWindow(ev)) return;
+      // Payment events: keep origin allowlist via parseMessage. Close is
+      // already gated to our iframe; payment stays origin-based for the
+      // iframe path (v2-compatible). Top-level path gates by child source.
       const parsed = parseMessage(ev, this.options.iframe?.allowedOrigins);
       if (parsed) {
         this.log("message: parsed", parsed.type, parsed);
@@ -525,9 +762,9 @@ export class StashPayController {
    * in-iframe bridge and the postMessage fallback). `success`/`failure` are
    * terminal: the first one latches `_settled`, and every later payment event —
    * a duplicate from the other channel, or a stale event — is dropped. The
-   * latch is reset only by `setIframeSrc` (a new checkout document).
-   * `processing` is not terminal and may fire repeatedly until a terminal
-   * event arrives.
+   * latch is reset only by `setIframeSrc` / top-level reopen (a new checkout
+   * document). `processing` is not terminal and may fire repeatedly until a
+   * terminal event arrives.
    */
   private dispatchPaymentEvent(event: StashPaymentEvent): void {
     if (this._settled) {
