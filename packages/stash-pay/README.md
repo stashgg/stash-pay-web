@@ -128,8 +128,8 @@ try {
 | `allowedCheckoutHosts` | `string[]` | — | Optional host allowlist for `checkoutUrl`. Entries are exact hosts (`pay.stash.gg`) or `*.domain` wildcards (apex + any subdomain). If set and the URL's host is not allowed, pre-flight validation fails with `DOMAIN_NOT_ALLOWED`. Distinct from `iframe.allowedOrigins`, which validates `postMessage` origins. |
 | `loadTimeout` | `number` (ms) | — | If the checkout iframe does not load within this many ms, `onError` fires with `NETWORK_ERROR`. Omitted or `0` disables the timeout (opt-in). |
 | `debug` | `boolean` | `false` | When `true`, logs SDK lifecycle and callback traces via `console.log` (`[stash-pay]` prefix). |
-| `preferTopLevelOnWebKit` | `boolean` | `true` | On WebKit (desktop Safari + all iOS browsers), open checkout in a **new top-level tab** instead of the iframe drawer so Apple Pay / Google Pay can complete. Chromium always keeps the iframe drawer. Set `false` to force the iframe path (not recommended for Safari wallets). |
-| `onTopLevelNavigation` | `(info: { url: string; mode: 'tab' \| 'redirect' }) => void` | — | Fired when WebKit top-level checkout opens a tab (`mode: 'tab'`) or falls back to `location.assign` because the popup was blocked (`mode: 'redirect'`). |
+| `preferRedirectOnWebKit` | `boolean` | `true` | On WebKit (desktop Safari + all iOS browsers), **same-tab redirect** to checkout via `location.assign` instead of the iframe drawer so Apple Pay / Google Pay can complete with **no extra tab**. Chromium always keeps the iframe drawer. Set `false` to force the iframe path (not recommended for Safari wallets). |
+| `onTopLevelNavigation` | `(info: { url: string; mode: 'redirect' }) => void` | — | Fired immediately before WebKit same-tab redirect. |
 | `injectStyles` | `boolean` | UMD: `true`, else `false` | Runtime `<style>` injection toggle. |
 | `cspNonce` | `string` | — | Applied to the injected `<style>` when runtime injection is enabled. |
 | `onOpen / onClose / onReady / onSuccess / onFailure / onProcessing` | fn | — | Callbacks. |
@@ -409,48 +409,54 @@ window.parent.postMessage(
 Both envelopes resolve to the same typed `onSuccess` callback — pick
 whichever is easier to emit from the checkout page.
 
-## Safari / WebKit (top-level checkout)
+## Safari / WebKit (same-tab redirect)
 
 On **WebKit** (desktop Safari and every iOS browser), Google Pay cannot complete
 inside a **cross-origin iframe** — storage partitioning breaks the
 `pay.google.com` popup handoff (`OR_BIBED_15`, crash/reload loops). Starting in
-**2.3.0**, the SDK detects WebKit and **skips the iframe drawer**: it opens
-checkout in a new top-level tab so wallets run first-party.
+**2.3.0**, the SDK detects WebKit and **skips the iframe drawer**: it navigates
+the **same tab** to checkout with `location.assign(checkoutUrl)` so wallets run
+first-party. **No second tab** (unlike checkout’s in-iframe `?dpm=gpay` handoff).
 
 | Engine | Behavior |
 | --- | --- |
-| WebKit (Safari / iOS) | Top-level tab via `window.open(url, '_blank')` — **no** `noopener` (checkout needs `window.opener` for host callbacks) |
+| WebKit (Safari / iOS) | Same-tab `location.assign` — host page leaves; no iframe, no `window.open` |
 | Chromium / others | Unchanged iframe drawer |
 
-If the popup is blocked, the SDK falls back to `location.assign(checkoutUrl)`
-so payment can still complete (the host page navigates away). Listen with
-`onTopLevelNavigation` if you need to distinguish tab vs redirect.
+### Callbacks after redirect
 
-**Call `open()` from a user gesture.** Browsers often block `window.open` when
-it runs after an `await` (e.g. fetch the checkout URL, then set React
-`isOpen=true`). Prefer:
+After `location.assign`, the **host page unloads**. In-page `onSuccess`,
+`onFailure`, and `onClose` for that session **will not run**. Purchase
+completion remains via **server webhooks** / your backend (the existing Stash
+Pay model). To return the player to the game/store after pay, configure checkout
+**success / cancel return URLs** (or equivalent “back to game” behavior) in your
+Stash Pay integration — do not rely on the drawer callbacks on WebKit.
 
-```ts
-// Good — open() runs in the click turn with a ready URL
-button.onclick = () => open({ checkoutUrl, onSuccess });
-```
+Before navigation the SDK still fires, in order:
 
-```tsx
-// Better for React when the URL is already known:
-const { open } = useStashPay();
-<button onClick={() => open({ checkoutUrl, onSuccess })}>Pay</button>
+1. `onTopLevelNavigation({ url, mode: 'redirect' })` (if provided)
+2. `onOpen`
+3. `onReady` (immediately — there is no iframe load event)
 
-// Declarative <StashPay isOpen> mounts in an effect — if the popup is blocked,
-// the SDK redirects via location.assign. Fetch the URL before the click when possible.
-```
+…then `location.assign`. Anything after that is best-effort and usually lost.
 
-Opt out (not recommended for wallet flows):
+### Opt-out
 
 ```ts
-open({ checkoutUrl, preferTopLevelOnWebKit: false });
+open({ checkoutUrl, preferRedirectOnWebKit: false });
 ```
 
-`isWebKitEngine()` is exported if hosts need the same detection.
+Not recommended for wallet flows on Safari. `isWebKitEngine()` is exported if
+hosts need the same detection.
+
+### Why not a new tab?
+
+Partners asked for **no extra tabs**. Same-tab redirect is the SDK-only way to
+get first-party wallets without a partner DNS / same-origin proxy. A
+`window.open` path would also leave the host alive for `postMessage` callbacks,
+but creates a second surface — explicitly rejected for this release.
+
+## Security notes
 
 ## Security notes
 
@@ -471,7 +477,7 @@ See [MIGRATION.md](./MIGRATION.md). Highlights:
 - Callbacks now fire **before** the auto-close animation starts.
 - Width prop unchanged; new `height`, `position`, `backdrop`, `theme`, `iframe`, dismiss and auto-close flags are all additive.
 - **2.2.x:** pre-flight failures from `open()` throw `StashPayError` and return no handle — see [Upgrading to 2.2.x](./MIGRATION.md#already-on-21x-upgrading-to-22x) in MIGRATION.md.
-- **2.3.0:** on WebKit, checkout opens top-level (not the iframe drawer) — see [Safari / WebKit](#safari--webkit-top-level-checkout) and [Upgrading to 2.3.0](./MIGRATION.md#already-on-22x-upgrading-to-230).
+- **2.3.0:** on WebKit, checkout **same-tab redirects** (not the iframe drawer) — see [Safari / WebKit](#safari--webkit-same-tab-redirect) and [Upgrading to 2.3.0](./MIGRATION.md#already-on-22x-upgrading-to-230).
 
 ## Browser support
 

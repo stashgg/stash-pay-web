@@ -186,24 +186,26 @@ export interface StashPayOptions {
   debug?: boolean;
 
   /**
-   * On WebKit (desktop Safari + all iOS browsers), open checkout in a new
-   * top-level tab instead of the iframe drawer so Apple Pay / Google Pay can
-   * complete first-party. Default: `true`. Set `false` to keep the iframe path
-   * (not recommended — GPay typically fails with `OR_BIBED_15` in cross-origin
-   * iframes on WebKit).
+   * On WebKit (desktop Safari + all iOS browsers), navigate the **same tab** to
+   * checkout via `location.assign` instead of mounting the iframe drawer, so
+   * Apple Pay / Google Pay can complete first-party with **no extra tab**.
+   * Default: `true`. Set `false` to keep the iframe path (not recommended —
+   * GPay typically fails with `OR_BIBED_15` in cross-origin iframes on WebKit).
    *
    * Chromium and other non-WebKit engines always use the iframe drawer.
+   *
+   * After redirect the host page unloads — in-page `onSuccess` / `onFailure` /
+   * `onClose` will not run; use server webhooks and checkout return URLs.
    */
-  preferTopLevelOnWebKit?: boolean;
+  preferRedirectOnWebKit?: boolean;
 
   /**
-   * Fired when WebKit top-level checkout navigates: `mode: 'tab'` after a
-   * successful `window.open`, or `mode: 'redirect'` when the popup is blocked
-   * and the SDK falls back to `location.assign(checkoutUrl)`.
+   * Fired immediately before WebKit same-tab redirect
+   * (`mode` is always `'redirect'`).
    */
   onTopLevelNavigation?: (info: {
     url: string;
-    mode: "tab" | "redirect";
+    mode: "redirect";
   }) => void;
 
   // Callbacks

@@ -181,33 +181,44 @@ work is required — partners only need an npm bump of `@stashgg/stash-pay`.
 ### What changed
 
 On WebKit (desktop Safari + all iOS browsers), the SDK **no longer mounts the
-checkout iframe**. It opens checkout **top-level** (`window.open` without
-`noopener`) so Apple Pay / Google Pay run first-party. If the popup is blocked,
-it falls back to `location.assign(checkoutUrl)`.
+checkout iframe**. It **same-tab redirects** with `location.assign(checkoutUrl)`
+so Apple Pay / Google Pay run first-party with **no extra tab**.
 
 | | ≤ 2.2.x | 2.3.0 |
 | --- | --- | --- |
 | Chrome / Edge / Firefox | iframe drawer | iframe drawer (unchanged) |
-| Safari / iOS | iframe drawer (GPay often fails) | top-level tab (default) |
+| Safari / iOS | iframe drawer (GPay often fails; checkout may open a 2nd `dpm=gpay` tab) | same-tab redirect to checkout |
+
+### Callbacks / return path (important)
+
+After redirect the **host page is gone**. Do **not** expect in-page `onSuccess` /
+`onFailure` / `onClose` on WebKit for that session. Fulfillment stays on
+**server webhooks**. Return the user to the game/store via checkout **success /
+cancel return URLs** (or existing “back to game” configuration) in your Stash
+Pay integration.
+
+`onOpen` and `onReady` still fire immediately before `location.assign` (ready
+has no iframe load to wait on).
 
 ### What you should do
 
 1. Bump `@stashgg/stash-pay` to `^2.3.0` and republish / redeploy the host.
-2. Prefer calling `open()` / `useStashPay().open()` **synchronously from the pay
-   click** once `checkoutUrl` is ready — async `isOpen=true` after `await fetch`
-   often gets the popup blocked (then the SDK redirects the host page).
-3. Optional: handle `onTopLevelNavigation` if you need analytics for tab vs redirect.
-4. Optional opt-out: `preferTopLevelOnWebKit: false` keeps the iframe path (wallets
-   on Safari will still hit the known GPay iframe failure).
+2. Confirm webhook + return-URL handling covers Safari (drawer callbacks will not).
+3. Optional: handle `onTopLevelNavigation` for analytics before the redirect.
+4. Optional opt-out: `preferRedirectOnWebKit: false` keeps the iframe path
+   (wallets on Safari will still hit the known GPay iframe failure / possible
+   second-tab handoff inside checkout).
 
 ```tsx
 <StashPay
   isOpen={open}
   checkoutUrl={url}
-  onTopLevelNavigation={({ mode }) => {
-    // mode === 'tab' | 'redirect'
+  onTopLevelNavigation={({ url, mode }) => {
+    // mode === 'redirect' — host is about to navigate to `url`
   }}
-  onSuccess={(e) => { /* … */ }}
+  onSuccess={(e) => {
+    /* Chrome drawer path only — not WebKit after redirect */
+  }}
   onClose={() => setOpen(false)}
 />
 ```

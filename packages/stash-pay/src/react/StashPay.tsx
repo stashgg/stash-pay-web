@@ -72,17 +72,17 @@ export interface StashPayProps {
   debug?: boolean;
 
   /**
-   * On WebKit, open checkout top-level instead of the iframe drawer.
+   * On WebKit, same-tab redirect to checkout instead of the iframe drawer.
    * Default: `true`. See README (Safari / WebKit).
    */
-  preferTopLevelOnWebKit?: boolean;
+  preferRedirectOnWebKit?: boolean;
 
   /**
-   * Fired when WebKit top-level checkout opens a tab or falls back to redirect.
+   * Fired immediately before WebKit same-tab redirect.
    */
   onTopLevelNavigation?: (info: {
     url: string;
-    mode: "tab" | "redirect";
+    mode: "redirect";
   }) => void;
 
   // Callbacks
@@ -122,7 +122,7 @@ const DOM_OPTION_KEYS: (keyof StashPayProps)[] = [
   "allowedCheckoutHosts",
   "loadTimeout",
   "debug",
-  "preferTopLevelOnWebKit",
+  "preferRedirectOnWebKit",
 ];
 
 function buildOptions(
@@ -154,7 +154,7 @@ function buildOptions(
     allowedCheckoutHosts: p.allowedCheckoutHosts,
     loadTimeout: p.loadTimeout,
     debug: p.debug,
-    preferTopLevelOnWebKit: p.preferTopLevelOnWebKit,
+    preferRedirectOnWebKit: p.preferRedirectOnWebKit,
     // Callback proxies — stable identity, always the latest closure.
     onTopLevelNavigation: (info) =>
       propsRef.current.onTopLevelNavigation?.(info),
