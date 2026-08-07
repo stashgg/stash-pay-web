@@ -3,7 +3,7 @@
  *
  * Google Pay cannot complete inside a cross-origin iframe on WebKit because
  * storage partitioning breaks the `pay.google.com` popup handoff. On those
- * engines the SDK opens checkout top-level instead of mounting an iframe.
+ * engines the SDK same-tab redirects to checkout instead of mounting an iframe.
  *
  * Logic mirrors checkout (`is-webkit-engine.ts`): iOS UAs, iPadOS desktop UA,
  * and desktop Safari (Safari/ without Chromium-family tokens).
